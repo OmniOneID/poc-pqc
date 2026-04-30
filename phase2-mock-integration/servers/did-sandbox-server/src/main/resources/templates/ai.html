@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 40px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            gap: 40px;
+        }
+        .qr-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-top: 10px;
+        }
+        .qr-img {
+            margin-top: 20px;
+        }
+        p {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Portal</h1>
+
+    <div class="container">
+        <div class="qr-section" style="padding-right: 20px;">
+            <form id="loginQrForm">
+                <label for="ipAddress">IP Address:</label>
+                <input type="text" id="ipAddress" name="ipAddress" placeholder="e.g., 192.168.0.1:8080">
+                <label for="apiKey">API Key:</label>
+                <input type="text" id="apiKey" name="apiKey">
+                <label for="policyId">policyId:</label>
+                <input type="text" id="policyId" name="policyId">
+                <button type="submit">로그인 QR 생성</button>
+                <p>ip입력이 없으면 mock서버에서 QR생성, ip 입력시 verifier와 연동</p>
+                <p>개발서버 Verifier : 192.168.3.110:8092</p>
+                <p>api key : vrs_74307dac-091e-4265-98a8-f74f916faa40</p>
+                <p>개발서버 policy ID : 926c70f0-59c5-4f44-8832-02b5e689fb26</p>
+            </form>
+            <div id="loginQrcode" style="margin-top: 20px;"></div>
+            <div class="textarea-container">
+                <label for="loginResponseTextArea"></label>
+                <textarea id="loginResponseTextArea" style="width: 600px; height: 100px;"></textarea>
+            </div>
+            <div class="qr-img">
+                <img
+                    id="loginQrImage"
+                    alt="QR Code"
+                    style="max-width: 50%; height: auto; border: 1px solid #ccc; display: none;"
+                />
+            </div>
+
+            <button id="submitLoginVpBtn">VP 제출</button>
+            <div id="loginVpResultDisplay" style="margin-top: 20px; color: green;"></div>
+        </div>
+
+        <div class="qr-section">
+            <form id="eDocQrForm">
+                <label for="studentId">Student ID:</label>
+                <input type="text" id="studentId" name="studentId">
+                <label for="url">URL:</label>
+                <input type="text" id="url" name="url" value="https://d574p1ljazt3g.cloudfront.net">
+                <label for="transcriptType">Transcript Type:</label>
+                <select id="transcriptType" name="transcriptType">
+                    <option value="Global">Global</option>
+                    <option value="Approved">Approved</option>
+                    <option value="LastSemester">LastSemester</option>
+                </select>
+                <button type="submit">eDoc제출 QR 생성</button>
+            </form>
+            <div id="eDocQrcode" style="margin-top: 20px;"></div>
+            <div class="textarea-container">
+                <label for="eDocResponseTextArea"></label>
+                <textarea id="eDocResponseTextArea" style="width: 600px; height: 100px;"></textarea>
+            </div>
+            <div class="qr-img">
+                <img
+                        id="eDocQrImage"
+                        alt="QR Code"
+                        style="max-width: 50%; height: auto; border: 1px solid #ccc; display: none;"
+                />
+            </div>
+            <button id="confirmBtn">제출 확인</button>
+            <div id="confirmResultDisplay" style="margin-top: 20px; color: green;"></div>
+        </div>
+    </div>
+
+    <script>
+        let loginVpOfferId="";
+        document.getElementById('loginQrForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const ipAddress = document.getElementById('ipAddress').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const policyId = document.getElementById('policyId').value;
+
+            fetch('/ai/api/v1/qr-data/generate-vp-qr', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ipAddress: ipAddress, apiKey: apiKey, policyId: policyId })
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    document.getElementById("loginResponseTextArea").value = JSON.stringify(
+                        data.qrData,
+                        null,
+                        2
+                    );
+                    const imageData = data.qrImage;
+
+                    if (imageData) {
+                        let qrImage = document.getElementById("loginQrImage");
+                        qrImage.src = "data:image/png;base64," + imageData;
+                        qrImage.style.display = 'block';
+                    }
+
+                    loginVpOfferId = data.offerId;
+                    console.log("loginVpOfferId : " + loginVpOfferId);
+
+                })
+                .catch((error) => {
+                    document.getElementById("loginResponseTextArea").value = "Error: " + error;
+                });
+        });
+
+        document.getElementById('submitLoginVpBtn').addEventListener('click', function () {
+            const ipAddress = document.getElementById('ipAddress').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const requestData = {
+                vpOfferId: loginVpOfferId,
+                ipAddress: ipAddress,
+                apiKey: apiKey
+            };
+
+            fetch('/ai/api/v1/vp-result', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('loginVpResultDisplay').innerText = data;
+                })
+                .catch(error => {
+                    console.error('요청 실패:', error);
+                    document.getElementById('loginVpResultDisplay').innerText = '에러 발생: ' + error;
+                });
+        });
+
+        document.getElementById('eDocQrForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const studentId = document.getElementById('studentId').value;
+            const url = document.getElementById('url').value;
+            const transcriptType = document.getElementById('transcriptType').value;
+
+            fetch('/ai/api/v1/qr-data/generate-edoc-qr', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ studentId: studentId, url: url, transcriptType: transcriptType})
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    document.getElementById("eDocResponseTextArea").value = JSON.stringify(
+                        data.qrData,
+                        null,
+                        2
+                    );
+                    const imageData = data.qrImage;
+
+                    if (imageData) {
+                        let qrImage = document.getElementById("eDocQrImage");
+                        qrImage.src = "data:image/png;base64," + imageData;
+                        qrImage.style.display = 'block';
+                    }
+
+                })
+                .catch((error) => {
+                    document.getElementById("eDocResponseTextArea").value = "Error: " + error;
+                });
+        });
+
+        // document.getElementById('submitEDocVpBtn').addEventListener('click', function () {
+        //     const requestData = {
+        //         vpId: "123456",
+        //         holder: "did:example:123",
+        //         result: "success"
+        //     };
+        //
+        //     fetch('/ai/api/v1/vp-result', {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         },
+        //         body: JSON.stringify(requestData)
+        //     })
+        //         .then(response => response.text())
+        //         .then(data => {
+        //             document.getElementById('eDocVpResultDisplay').innerText = data;
+        //         })
+        //         .catch(error => {
+        //             console.error('요청 실패:', error);
+        //             document.getElementById('eDocVpResultDisplay').innerText = '에러 발생: ' + error;
+        //         });
+        // });
+
+        document.getElementById('confirmBtn').addEventListener('click', function () {
+            const studentId = document.getElementById('studentId').value;
+            fetch('/ai/api/v1/edoc/confirm?studentId='+studentId + '&authToken=' + 'token', {
+                method: 'GET'
+            })
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('confirmResultDisplay').innerText = data;
+                })
+                .catch(error => {
+                    console.error('요청 실패:', error);
+                    document.getElementById('confirmResultDisplay').innerText = '에러 발생: ' + error;
+                });
+        });
+    </script>
+</body>
+</html>

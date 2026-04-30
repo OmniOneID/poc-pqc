@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.6.xsd">
+
+        <changeSet id="project-init_vc_metadata" author="gwnam">
+            <createTable tableName="vc_metadata">
+                <column name="id" type="BIGINT" autoIncrement="true">
+                    <constraints primaryKey="true" nullable="false" />
+                </column>
+                <column name="vc_id" type="VARCHAR(100)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="issuer_did" type="VARCHAR(100)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="subject_did" type="VARCHAR(100)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="vc_schema" type="VARCHAR(200)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="metadata" type="TEXT">
+                    <constraints nullable="false" unique="false"/>
+                </column>
+                <column name="format_version" type="VARCHAR(10)">
+                    <constraints nullable="true" unique="false" />
+                </column>
+                <column name="language" type="VARCHAR(10)">
+                    <constraints nullable="true" unique="false" />
+                </column>
+                <column name="status" type="VARCHAR(20)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="issuance_date" type="VARCHAR(20)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="valid_from" type="VARCHAR(20)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="valid_until" type="VARCHAR(20)">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="created_at" type="TIMESTAMP" defaultValue="NOW()">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="updated_at" type="TIMESTAMP">
+                    <constraints nullable="true" unique="false" />
+                </column>
+            </createTable>
+        </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: demo
+  profiles:
+    default: dev
+    group:
+        dev:
+          - logging
+          - spring-docs
+          - demo
+  jackson:
+    default-property-inclusion: non_null
+
+
+tas:
+  url: http://10.48.17.123:8090
+
+issuer:
+  url: http://10.48.17.123:8091
+
+verifier:
+  url: http://10.48.17.123:8092
+
+cas:
+  url: http://10.48.17.123:8094
+
+server:
+  port: 8099
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true
+app:
+  config:
+    file-path: ${CONFIG_FILE_PATH:./config/config.json}

@@ -1,0 +1,4 @@
+rootProject.name = 'did-core-sdk-server'
+
+includeBuild '../../../did-crypto-sdk-server/source/did-crypto-sdk-server'
+includeBuild '../../../did-datamodel-sdk-server/source/did-datamodel-sdk-server'

@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: Issuer
+  profiles:
+    active: dev, lss
+    group:
+        dev:
+          - database
+          - wallet
+          - logging
+          - spring-docs
+          - blockchain
+        sample:
+          - database-sample
+          - wallet
+          - logging
+          - spring-docs
+          - blockchain
+        lss:
+          - lss
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      fail-on-empty-beans: false
+
+server:
+  port: 8091
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true
+
+wallet:
+  key-algorithm: MlDsa44 # PQC: MlDsa44 또는 Secp256r1
+
+tas:
+  url: http://127.0.0.1:8090
+
+issuer:
+  test:
+    auto-create-user: true

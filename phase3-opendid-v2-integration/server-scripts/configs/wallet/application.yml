@@ -1,0 +1,14 @@
+spring:
+  profiles:
+    active: dev, lss
+
+wallet:
+  file-path: /Users/yundabal/git/pqc/server-scripts/jars/Wallet/wallet-pqc.wallet
+  password: omnioneopendid12!@
+springdoc:
+  server:
+    url: http://10.48.17.123:5252
+
+observer:
+  url: http://127.0.0.1:18080
+  service-name: did-wallet-server

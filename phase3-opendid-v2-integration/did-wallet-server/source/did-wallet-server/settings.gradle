@@ -1,0 +1,9 @@
+rootProject.name = 'did-wallet-server'
+
+includeBuild '../../../did-crypto-sdk-server/source/did-crypto-sdk-server'
+includeBuild '../../../did-datamodel-sdk-server/source/did-datamodel-sdk-server'
+includeBuild '../../../did-core-sdk-server/source/did-core-sdk-server'
+includeBuild '../../../did-wallet-sdk-server/source/did-wallet-sdk-server'
+includeBuild '../../../did-blockchain-sdk-server/source/did-blockchain-sdk-server'
+includeBuild '../../../did-zkp-sdk-server/source/did-zkp-sdk-server'
+includeBuild '../../../did-common-sdk-server/source/did-common-sdk-server'

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Add VC Info</title>
+    <style>
+        button {
+            font-size: 24px;
+            padding: 16px 32px;
+            width: 200px;
+            height: 80px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Add VC Info</h1>
+
+    <form id="addVcInfoForm">
+        <button type="submit">OK</button>
+    </form>
+
+    <script>
+        document.getElementById('addVcInfoForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            // const vcData = document.getElementById('vcData').value;
+            // window.android.sendVcInfo(vcData);
+            if (window.android && window.android.onCompletedAddVcUpload) {
+                // Android
+                window.android.onCompletedAddVcUpload();
+            } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.onCompletedAddVcUpload) {
+                // iOS
+                window.webkit.messageHandlers.onCompletedAddVcUpload.postMessage(null);
+            } else {
+                console.warn('No native interface found.');
+            }
+
+        });
+    </script>
+</body>
+</html>

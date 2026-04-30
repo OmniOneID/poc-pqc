@@ -1,0 +1,5 @@
+rootProject.name = 'did-blockchain-sdk-server'
+
+includeBuild '../../../did-crypto-sdk-server/source/did-crypto-sdk-server'
+includeBuild '../../../did-datamodel-sdk-server/source/did-datamodel-sdk-server'
+includeBuild '../../../did-zkp-sdk-server/source/did-zkp-sdk-server'
