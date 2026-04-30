@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: wallet
+  profiles:
+    default: dev, lss
+    group:
+      dev:
+        - wallet
+        - logging
+        - spring-docs
+        - database
+        - tas
+        - blockchain
+      sample:
+        - logging
+        - spring-docs
+        - database-sample
+        - wallet
+        - tas
+      lss:
+        - lss
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      fail-on-empty-beans: false
+
+server:
+  port: 8095
+
+wallet:
+  key-algorithm: MlDsa44 # PQC: MlDsa44 또는 Secp256r1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true

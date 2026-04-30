@@ -1,0 +1,26 @@
+plugins {
+	id 'java'
+}
+
+group = 'org.omnione.did'
+
+java {
+	sourceCompatibility = '21'
+}
+
+jar {
+    archiveBaseName.set('did-crypto-sdk-server')
+    archiveVersion.set('2.0.0')
+    archiveClassifier.set('') 
+}
+
+
+repositories {
+	mavenCentral()		
+}
+
+dependencies {
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.80' // forten - PQC ML-DSA-44 지원
+}
+
+

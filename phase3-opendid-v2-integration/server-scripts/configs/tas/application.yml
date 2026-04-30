@@ -1,0 +1,10 @@
+spring:
+  profiles:
+    active: dev, lss
+
+wallet:
+  file-path: /Users/yundabal/git/pqc/server-scripts/jars/TA/tas-pqc.wallet
+  password: omnioneopendid12!@
+springdoc:
+  server:
+    url: http://10.48.17.123:4040

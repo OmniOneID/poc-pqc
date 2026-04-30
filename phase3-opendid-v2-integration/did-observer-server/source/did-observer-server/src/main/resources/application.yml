@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: did-observer-server
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      fail-on-empty-beans: false
+
+server:
+  port: 18080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"

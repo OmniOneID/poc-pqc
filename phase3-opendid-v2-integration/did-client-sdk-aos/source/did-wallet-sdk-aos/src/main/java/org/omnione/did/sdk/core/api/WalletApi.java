@@ -1,0 +1,708 @@
+/*
+ * Copyright 2024-2025 OmniOne.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.omnione.did.sdk.core.api;
+
+import android.content.Context;
+
+import org.omnione.did.sdk.core.bioprompthelper.BioPromptHelper;
+import org.omnione.did.sdk.core.exception.WalletCoreException;
+import org.omnione.did.sdk.datamodel.common.ProofContainer;
+import org.omnione.did.sdk.datamodel.common.enums.VerifyAuthType;
+import org.omnione.did.sdk.datamodel.common.enums.WalletTokenPurpose;
+import org.omnione.did.sdk.datamodel.did.DIDDocument;
+import org.omnione.did.sdk.datamodel.did.SignedDidDoc;
+import org.omnione.did.sdk.datamodel.profile.IssueProfile;
+import org.omnione.did.sdk.datamodel.profile.ProofRequestProfile;
+import org.omnione.did.sdk.datamodel.profile.ReqE2e;
+import org.omnione.did.sdk.datamodel.protocol.P311RequestVo;
+import org.omnione.did.sdk.datamodel.security.DIDAuth;
+import org.omnione.did.sdk.datamodel.token.SignedWalletInfo;
+import org.omnione.did.sdk.datamodel.token.WalletTokenData;
+import org.omnione.did.sdk.datamodel.token.WalletTokenSeed;
+import org.omnione.did.sdk.datamodel.vc.VerifiableCredential;
+import org.omnione.did.sdk.datamodel.vc.issue.ReturnEncVP;
+import org.omnione.did.sdk.datamodel.zkp.AvailableReferent;
+import org.omnione.did.sdk.datamodel.zkp.Credential;
+import org.omnione.did.sdk.datamodel.zkp.ProofParam;
+import org.omnione.did.sdk.datamodel.zkp.ProofRequest;
+import org.omnione.did.sdk.datamodel.zkp.ReferentInfo;
+import org.omnione.did.sdk.datamodel.zkp.UserReferent;
+import org.omnione.did.sdk.utility.Errors.UtilityException;
+import org.omnione.did.sdk.wallet.walletservice.LockManager;
+import org.omnione.did.sdk.wallet.walletservice.config.Constants;
+import org.omnione.did.sdk.wallet.walletservice.exception.WalletException;
+import org.omnione.did.sdk.wallet.walletservice.logger.WalletLogger;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+public class WalletApi implements IWalletApi.IWalletService, IWalletApi.ICredentialService, IWalletApi.IDIDKeyService, IWalletApi.IZKPService, IWalletApi.ISecurityAuthService {
+    private Context context;
+    private static WalletApi instance;
+    public static boolean isLock = true;
+    WalletToken walletToken;
+    LockManager lockManager;
+    WalletCore walletCore;
+    WalletService walletService;
+    WalletLogger walletLogger;
+
+    /**
+     * @param bioPromptInterface
+     */
+    public void setBioPromptListener(BioPromptHelper.BioPromptInterface bioPromptInterface) {
+        this.bioPromptInterface = bioPromptInterface;
+    }
+
+    public interface BioPromptInterface {
+        void onSuccess(String result);
+
+        void onFail(String result);
+    }
+
+    private BioPromptHelper.BioPromptInterface bioPromptInterface;
+
+    private WalletApi() {
+    }
+
+    private WalletApi(Context context) throws WalletCoreException {
+        this.context = context;
+        lockManager = new LockManager(context);
+        walletCore = new WalletCore(context);
+        walletToken = new WalletToken(context, walletCore);
+        walletService = new WalletService(context, walletCore);
+        walletLogger = WalletLogger.getInstance();
+    }
+
+    public static WalletApi getInstance(Context context) throws WalletCoreException {
+        if (instance == null) {
+            instance = new WalletApi(context);
+        }
+        return instance;
+    }
+
+    /**
+     * Authenticates a PIN using the provided ID and PIN byte array.
+     * This method delegates the PIN authentication process to the underlying wallet core.
+     *
+     * @param id The identifier associated with the PIN to be authenticated.
+     *           This could be a user ID, key ID, or any other relevant identifier.
+     * @param pin A byte array representation of the PIN to be authenticated.
+     *            The PIN should be converted to bytes using a consistent encoding (e.g., UTF-8).
+     * @throws Exception If an error occurs within the wallet core during the PIN authentication process.
+     *                             This might include issues like incorrect PIN, too many failed attempts (if handled by core),
+     *                             or other core-specific errors.
+     */
+    public void authenticatePin(String id, byte[] pin) throws WalletCoreException, UtilityException {
+        walletCore.authenticatePin(id, pin);
+    }
+
+    public boolean isExistWallet() {
+        walletLogger.d("isExistWallet");
+        return walletCore.isExistWallet();
+    }
+
+    /**
+     * Creates a wallet and performs necessary setup operations such as fetching CA (Certificate App) package information
+     * and creating a device DID (Decentralized Identifier) document. This method handles all the required steps to
+     * initialize a wallet on the device.
+     *
+     * @return boolean - Returns `true` if the wallet exists after creation, otherwise `false`.
+     * @throws Exception - If an error occurs during the wallet creation process, including issues with fetching CA package information,
+     *                   creating the device DID document, or any other wallet-related operation.
+     */
+    public boolean createWallet(String walletUrl, String tasUrl) throws WalletException, WalletCoreException, UtilityException, ExecutionException, InterruptedException {
+        walletLogger.d("createWallet : " + walletUrl + " / " + tasUrl);
+        walletService.fetchCaInfo(tasUrl);
+        walletService.createDeviceDocument(walletUrl, tasUrl);
+        return isExistWallet();
+    }
+
+    //
+    /**
+     * Deletes the holder’s wallet data. Depending on the {@code deleteAll} flag, it either deletes all wallet-related data
+     * (including CA package information, user data, and tokens) or performs a partial deletion.
+     * The deletion process runs asynchronously for database records and also invokes the core wallet deletion logic.
+     * @param deleteAll deleteAll If set to true, it deletes both deviceKey and holderKey. If set to false, it deletes only holderKey.
+     * @throws Exception - If an error occurs in the core wallet functionalities while deleting the wallet.
+     */
+    public void deleteWallet(boolean deleteAll) throws WalletCoreException {
+        walletLogger.d("deleteWallet");
+        walletService.deleteWallet(deleteAll);
+    }
+
+    /**
+     * Creates a wallet token seed for the specified purpose, package name, and user ID.
+     *
+     * @param purpose The purpose of the wallet token, defined by the `WALLET_TOKEN_PURPOSE` enum.
+     * @param pkgName The CA package name associated with the wallet token.
+     * @param userId  The user ID for which the wallet token seed is being created.
+     * @return WalletTokenSeed - The created wallet token seed.
+     * @throws Exception - If an error occurs during the token seed creation process,
+     *                   including wallet core issues or utility operation failures.
+     */
+    public WalletTokenSeed createWalletTokenSeed(WalletTokenPurpose.WALLET_TOKEN_PURPOSE purpose, String pkgName, String userId) throws WalletCoreException, UtilityException, WalletException {
+        return walletToken.createWalletTokenSeed(purpose, pkgName, userId);
+    }
+
+    /**
+     * Creates a nonce (a unique number used once) for the provided wallet token data.
+     *
+     * @param walletTokenData The data for which the nonce is being created, represented by the `WalletTokenData` object.
+     * @return String - The created nonce.
+     * @throws Exception - If an error occurs during the nonce creation process,
+     *                   including wallet interaction, utility operation failures, or wallet core issues.
+     */
+    public String createNonceForWalletToken(String apiGateWayUrl, WalletTokenData walletTokenData) throws WalletException, UtilityException, WalletCoreException, ExecutionException, InterruptedException {
+        return walletToken.createNonceForWalletToken(apiGateWayUrl, walletTokenData);
+    }
+
+    /**
+     * Binds a user to the wallet using the provided wallet token.
+     *
+     * @param hWalletToken The wallet token to be used for binding the user, as a `String`.
+     * @return boolean - Returns `true` if the user is successfully bound, otherwise `false`.
+     * @throws Exception - If an error occurs during the wallet token verification or user binding process.
+     */
+    public boolean bindUser(String hWalletToken) throws WalletException {
+        walletLogger.d("bindUser: + " + hWalletToken);
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.PERSONALIZE_AND_CONFIGLOCK,
+                WalletTokenPurpose.WALLET_TOKEN_PURPOSE.PERSONALIZE));
+        return walletService.bindUser();
+
+    }
+
+    /**
+     * Unbinds a user from the wallet using the provided wallet token.
+     *
+     * @param hWalletToken The wallet token to be used for unbinding the user.
+     * @return boolean - Returns `true` if the user is successfully unbound, otherwise `false`.
+     * @throws Exception - If an error occurs during the wallet token verification or user unbinding process.
+     */
+    public boolean unbindUser(String hWalletToken) throws WalletException {
+        walletLogger.d("unbindUser: + " + hWalletToken);
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.DEPERSONALIZE));
+        return walletService.unbindUser();
+
+    }
+
+    /**
+     * Registers a wallet lock type with the provided wallet token, passcode, and lock status.
+     *
+     * @param hWalletToken The wallet token to be used for lock registration.
+     * @param passCode     The passcode associated with the lock.
+     * @param isLock       `true` if registering a lock, `false` if unregistering a lock.
+     * @return boolean - Returns `true` if the lock is successfully registered or unregistered, otherwise `false`.
+     * @throws Exception - If an error occurs during the wallet token verification, lock registration, or any related operation.
+     */
+    public boolean registerLock(String hWalletToken, String passCode, boolean isLock) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.PERSONALIZE_AND_CONFIGLOCK,
+                WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CONFIGLOCK));
+        return lockManager.registerLock(passCode, isLock);
+
+    }
+
+    /**
+     * Authenticates a lock using the provided passcode.
+     *
+     * @param passCode The passcode used to authenticate the lock.
+     * @throws Exception - If an error occurs during the lock authentication process, including utility or core issues.
+     */
+    public void authenticateLock(String passCode) throws UtilityException, WalletCoreException {
+        lockManager.authenticateLock(passCode);
+    }
+
+    /**
+     * Creates a DID (Decentralized Identifier) document for the holder using the provided wallet token.
+     *
+     * @param hWalletToken The wallet token to be used for creating the DID document.
+     * @return DIDDocument - The created DID document.
+     * @throws Exception - If an error occurs during the wallet token verification, DID document creation, or any related operation.
+     */
+    public DIDDocument createHolderDIDDoc(String hWalletToken) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CREATE_DID));
+        return walletService.createHolderDIDDoc();
+    }
+
+    /**
+     Updates the existing DID (Decentralized Identifier) document for the holder using the provided wallet token.
+     @param hWalletToken The wallet token to be used for updating the DID document.
+     @return DIDDocument - The updated DID document.
+     @throws Exception - If an error occurs during the wallet token verification, DID document update, or any related operation.
+     */
+    public DIDDocument updateHolderDIDDoc(String hWalletToken) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.UPDATE_DID));
+        return walletService.updateHolderDIDDoc();
+    }
+
+    /**
+     Saves the holder's DID (Decentralized Identifier) document into persistent storage.
+     @throws Exception - If an error occurs related to wallet operations during the save process.
+     */
+    public void saveDocument() throws WalletException, WalletCoreException, UtilityException {
+        walletCore.saveDocument(Constants.DID_DOC_TYPE_HOLDER);
+    }
+
+    /**
+     * Creates a signed DID document using the provided owner DID document.
+     *
+     * @param ownerDIDDoc The DID document of the owner.
+     * @return SignedDidDoc - The created signed DID document.
+     * @throws Exception - Any error that occurs during the creation of the signed DID document.
+     */
+    public SignedDidDoc createSignedDIDDoc(DIDDocument ownerDIDDoc) throws WalletException, UtilityException, WalletCoreException {
+        return walletService.createSignedDIDDoc(ownerDIDDoc);
+    }
+
+    /**
+     * Retrieves a DID document based on the specified type.
+     *
+     * @param type The type of the DID document. (1: device key, 2: holder key)
+     * @return DIDDocument - The requested DID document.
+     * @throws Exception - Any error that occurs while retrieving the DID document.
+     */
+    public DIDDocument getDIDDocument(int type) throws UtilityException, WalletCoreException, WalletException {
+        return walletCore.getDocument(type);
+    }
+
+    /**
+     * Generates a key pair using the provided wallet token and passcode.
+     *
+     * @param hWalletToken The wallet token used for key pair generation.
+     * @param passcode     The passcode required for key pair generation.
+     * @throws Exception - Any error that occurs during wallet token verification or key pair generation.
+     */
+    public void generateKeyPair(String hWalletToken, String passcode) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CREATE_DID, WalletTokenPurpose.WALLET_TOKEN_PURPOSE.UPDATE_DID));
+        walletCore.generateKeyPair(passcode);
+    }
+
+    /**
+     * Checks if the system is in a locked state.
+     *
+     * @return boolean - `true` if the system is locked, otherwise `false`.
+     */
+    public boolean isLock() {
+        return lockManager.isLock();
+    }
+
+    /**
+     * Retrieves signed wallet information.
+     *
+     * @return SignedWalletInfo - The requested signed wallet information.
+     * @throws Exception - Any error that occurs while retrieving the signed wallet information.
+     */
+    public SignedWalletInfo getSignedWalletInfo() throws WalletException, UtilityException, WalletCoreException {
+        return walletService.getSignedWalletInfo();
+    }
+
+    /**
+     * Requests user registration with the given wallet token, transaction ID, server token, and signed DID document.
+     *
+     * @param hWalletToken The wallet token used for user registration.
+     * @param tasUrl       The URL of the TAS
+     * @param txId         The transaction ID.
+     * @param serverToken  The server-issued token.
+     * @param signedDIDDoc The signed DID document.
+     * @return CompletableFuture<String> - A `CompletableFuture` representing the result of the user registration request.
+     * @throws Exception - Any error that occurs during wallet token verification or user registration request.
+     */
+    public CompletableFuture<String> requestRegisterUser(String hWalletToken, String tasUrl, String txId, String serverToken, SignedDidDoc signedDIDDoc) throws WalletException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CREATE_DID,
+                WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CREATE_DID_AND_ISSUE_VC));
+        return walletService.requestRegisterUser(tasUrl, txId, serverToken, signedDIDDoc);
+    }
+
+    /**
+     * Requests user restoration with the given wallet token, server token, signed DID authentication, and transaction ID.
+     *
+     * @param hWalletToken  The wallet token used for user restoration.
+     * @param tasUrl        The URL of the TAS (Trusted Authority Service).
+     * @param serverToken   The server-issued token.
+     * @param signedDIDAuth The signed DID authentication document.
+     * @param txId          The transaction ID.
+     * @return CompletableFuture<String> - A `CompletableFuture` representing the result of the user restoration request.
+     * @throws Exception - Any error that occurs during wallet token verification, user restoration request, or related processes.
+     */
+    public CompletableFuture<String> requestRestoreUser(String hWalletToken, String tasUrl, String serverToken, DIDAuth signedDIDAuth, String txId) throws WalletException, ExecutionException, InterruptedException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.RESTORE_DID));
+        return walletService.requestRestoreUser(tasUrl, serverToken, signedDIDAuth, txId);
+    }
+
+    /**
+     Deletes the specified keys associated with the holder’s DID (Decentralized Identifier) document, after verifying the provided wallet token for the required permissions.
+     @param hWalletToken The wallet token used to authorize the key deletion operation.
+     @param keyIds A list of key identifiers to be deleted from the wallet.
+     @throws Exception - If an error occurs in the core wallet functionalities while deleting the keys.
+     */
+    public void deleteKey(String hWalletToken, List<String> keyIds) throws WalletCoreException, UtilityException, WalletException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CREATE_DID, WalletTokenPurpose.WALLET_TOKEN_PURPOSE.UPDATE_DID));
+        walletCore.deleteKey(keyIds);
+    }
+
+    /**
+     * Requests user DID update with the given wallet token, server token, signed DID authentication, and transaction ID.
+     *
+     * @param hWalletToken  The wallet token used for user DID update.
+     * @param tasUrl        The URL of the TAS (Trusted Authority Service).
+     * @param serverToken   The server-issued token.
+     * @param signedDIDAuth The signed DID authentication document.
+     * @param signedDIDDoc The signed DID document.
+     * @param txId          The transaction ID.
+     * @return CompletableFuture<String> - A `CompletableFuture` representing the result of the user DID update request.
+     * @throws Exception - Any error that occurs during wallet token verification, user DID update request, or related processes.
+     */
+    public CompletableFuture<String> requestUpdateUser(String hWalletToken, String tasUrl, String serverToken, DIDAuth signedDIDAuth, SignedDidDoc signedDIDDoc, String txId) throws WalletException, UtilityException, WalletCoreException, ExecutionException, InterruptedException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.UPDATE_DID));
+        return walletService.requestUpdateUser(tasUrl, serverToken, signedDIDAuth, signedDIDDoc, txId);
+    }
+
+    /**
+     * Creates signed DID authentication using the provided authentication nonce and passcode.
+     *
+     * @param authNonce The authentication nonce.
+     * @param passcode  The passcode.
+     * @return DIDAuth - The signed DID authentication object.
+     * @throws Exception - Any error that occurs during the DID authentication process.
+     */
+    public DIDAuth getSignedDIDAuth(String authNonce, String passcode) throws WalletException, UtilityException, WalletCoreException {
+        return walletService.getSignedDIDAuth(authNonce, passcode);
+    }
+
+    /**
+     * Requests to issue a Verifiable Credential (VC) using the provided wallet token, server token, reference ID, profile, signed DID authentication, and transaction ID.
+     *
+     * @param hWalletToken  The wallet token used for VC issuance.
+     * @param serverToken   The server-issued token.
+     * @param refId         The reference ID.
+     * @param profile       The issuance profile.
+     * @param signedDIDAuth The signed DID authentication object.
+     * @param txId          The transaction ID.
+     * @return CompletableFuture<String> - A `CompletableFuture` representing the result of the VC issuance request.
+     * @throws Exception - Any error that occurs during wallet token verification or VC issuance request.
+     */
+    public CompletableFuture<String> requestIssueVc(String hWalletToken, String tasUrl, String apiGateWayUrl, String serverToken, String refId, IssueProfile profile, DIDAuth signedDIDAuth, String txId) throws WalletException, UtilityException, WalletCoreException, ExecutionException, InterruptedException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.ISSUE_VC,
+                WalletTokenPurpose.WALLET_TOKEN_PURPOSE.CREATE_DID_AND_ISSUE_VC));
+        return walletService.requestIssueVc(tasUrl, apiGateWayUrl, serverToken, refId, profile, signedDIDAuth, txId);
+    }
+
+    /**
+     * Requests to revoke a Verifiable Credential (VC) using the provided wallet token, server token, transaction ID, VC ID, issuer nonce, and passcode.
+     *
+     * @param hWalletToken The wallet token used for VC revocation.
+     * @param serverToken  The server-issued token.
+     * @param txId         The transaction ID.
+     * @param vcId         The ID of the VC to be revoked.
+     * @param issuerNonce  The issuer nonce.
+     * @param passcode     The passcode.
+     * @return CompletableFuture<String> - A `CompletableFuture` representing the result of the VC revocation request.
+     * @throws Exception - Any error that occurs during wallet token verification or VC revocation request.
+     */
+    public CompletableFuture<String> requestRevokeVc(String hWalletToken, String tasUrl, String serverToken, String txId, String vcId, String issuerNonce, String passcode, VerifyAuthType.VERIFY_AUTH_TYPE authType) throws WalletException, UtilityException, WalletCoreException, ExecutionException, InterruptedException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.REMOVE_VC));
+        return walletService.requestRevokeVc(tasUrl, serverToken, txId, vcId, issuerNonce, passcode, authType);
+    }
+
+    /**
+     Checks whether any credentials are saved in the holder’s wallet.
+     @return boolean - {@code true} if at least one credential is saved, {@code false} otherwise.
+     @throws Exception - If an error occurs during the wallet operation while checking saved credentials.
+     */
+    public boolean isAnyCredentialsSaved() throws WalletException {
+        return walletCore.isAnyCredentialsSaved();
+    }
+
+    /**
+     * Retrieves all Verifiable Credentials (VCs) associated with the provided wallet token.
+     *
+     * @param hWalletToken The wallet token used to retrieve the VC list.
+     * @return List<VerifiableCredential> - A list of all VCs.
+     * @throws Exception - Any error that occurs during wallet token verification or VC retrieval.
+     */
+    public List<VerifiableCredential> getAllCredentials(String hWalletToken) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC,
+                WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC_AND_PRESENT_VP));
+        return walletCore.getAllCredentials();
+    }
+
+    /**
+     * Retrieves specific Verifiable Credentials (VCs) based on the provided identifiers.
+     *
+     * @param hWalletToken The wallet token used to retrieve the VCs.
+     * @param identifiers  A list of identifiers for the VCs to retrieve.
+     * @return List<VerifiableCredential> - A list of requested VCs.
+     * @throws Exception - Any error that occurs during wallet token verification or VC retrieval.
+     */
+    public List<VerifiableCredential> getCredentials(String hWalletToken, List<String> identifiers) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.DETAIL_VC));
+        return walletCore.getCredentials(identifiers);
+    }
+
+    /**
+     * Deletes a Verifiable Credential (VC) using the provided wallet token and VC ID.
+     *
+     * @param hWalletToken The wallet token used for VC deletion.
+     * @param vcId         The ID of the VC to be deleted.
+     * @throws Exception - Any error that occurs during wallet token verification or VC deletion.
+     */
+    public void deleteCredentials(String hWalletToken, String vcId) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.REMOVE_VC));
+        walletCore.deleteCredentials(List.of(vcId));
+    }
+
+    /**
+     * Creates an encrypted Verifiable Presentation (VP) using the provided wallet token, VC ID, claim codes, end-to-end request object, passcode, nonce, and authentication type.
+     *
+     * @param hWalletToken The wallet token used for VP creation.
+     * @param vcId         The ID of the VC.
+     * @param claimCode    A list of claim codes to be included in the VP.
+     * @param reqE2e       The end-to-end request object.
+     * @param passcode     The passcode used for VP creation.
+     * @param nonce        The nonce used for VP creation.
+     * @param authType     The authentication type.
+     * @return ReturnEncVP - The created encrypted VP object.
+     * @throws Exception - Any error that occurs during wallet token verification or VP creation.
+     */
+    public ReturnEncVP createEncVp(String hWalletToken, String vcId, List<String> claimCode, ReqE2e reqE2e, String passcode, String nonce, VerifyAuthType.VERIFY_AUTH_TYPE authType) throws WalletException, UtilityException, WalletCoreException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.PRESENT_VP,
+                WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC_AND_PRESENT_VP));
+        return walletService.createEncVp(vcId, claimCode, reqE2e, passcode, nonce, authType);
+    }
+
+    /**
+     * Registers a biometric key for signing.
+     *
+     * @param ctx The context in which the biometric key will be registered.
+     */
+    public void registerBioKey(Context ctx) throws WalletException {
+        walletCore.setBioPromptListener(new BioPromptHelper.BioPromptInterface() {
+            @Override
+            public void onSuccess(String result) {
+                bioPromptInterface.onSuccess(result);
+            }
+
+            @Override
+            public void onError(String result) {
+                bioPromptInterface.onError(result);
+            }
+
+            @Override
+            public void onCancel(String result) {
+                bioPromptInterface.onCancel(result);
+            }
+
+            @Override
+            public void onFail(String result) {
+                bioPromptInterface.onFail(result);
+            }
+        });
+        walletCore.registerBioKey(ctx);
+    }
+
+    /**
+     * Authenticates a biometric key for signing.
+     *
+     * @param ctx      The context used for biometric authentication.
+     * @throws Exception - Any error that occurs during biometric authentication.
+     */
+    public void authenticateBioKey(Context ctx) throws WalletCoreException, WalletException {
+        walletCore.setBioPromptListener(new BioPromptHelper.BioPromptInterface() {
+            @Override
+            public void onSuccess(String result) {
+                bioPromptInterface.onSuccess(result);
+            }
+
+            @Override
+            public void onError(String result) {
+                bioPromptInterface.onError(result);
+            }
+
+            @Override
+            public void onCancel(String result) {
+                bioPromptInterface.onCancel(result);
+            }
+
+            @Override
+            public void onFail(String result) {
+                bioPromptInterface.onFail(result);
+            }
+        });
+        walletCore.authenticateBioKey(ctx);
+
+    }
+
+    /**
+     * Adds proofs to a document using the provided document, key IDs, DID, type, passcode, and DID authentication status.
+     *
+     * @param document  The document to which proofs will be added.
+     * @param keyIds    The list of key IDs for the proofs.
+     * @param did       The DID.
+     * @param type      The DID document type.
+     * @param passcode  The passcode.
+     * @param isDIDAuth Indicates if DID authentication is required.
+     * @return ProofContainer - The document with added proofs.
+     * @throws Exception - Any error that occurs during proof addition to the document.
+     */
+    public ProofContainer addProofsToDocument(ProofContainer document, List<String> keyIds, String did, int type, String passcode, boolean isDIDAuth) throws WalletException, UtilityException, WalletCoreException {
+        return walletService.addProofsToDocument(document, keyIds, did, type, passcode, isDIDAuth);
+    }
+
+    /**
+     * Checks if a biometric key is saved.
+     *
+     * @return boolean - `true` if a biometric key is saved, otherwise `false`.
+     * @throws Exception - Any error that occurs during the check for a saved biometric key.
+     */
+    public boolean isSavedKey(String id) throws UtilityException, WalletCoreException, WalletException {
+        return walletCore.isSavedKey(id);
+    }
+
+    /**
+     * Changes the Signing PIN for a given ID.
+     *
+     * @param keyId  The identifier of the key to be changed.
+     * @param oldPin The current PIN.
+     * @param newPin The new PIN.
+     * @throws Exception Throws an exception if parameter validation fails or if an error occurs during encryption/decryption.
+     */
+    public void changePin(String keyId, String oldPin, String newPin) throws UtilityException, WalletCoreException {
+        walletCore.changePin(keyId, oldPin, newPin);
+    }
+
+    /**
+     * Changes the Unlock PIN.
+     *
+     * @param oldPassCode The current oldPassCode.
+     * @param newPassCode The new newPassCode.
+     * @throws Exception Throws an exception if parameter validation fails or if an error occurs during encryption/decryption.
+     */
+    public void changeLock(String oldPassCode, String newPassCode) throws UtilityException, WalletCoreException, WalletException {
+        lockManager.changeLock(oldPassCode, newPassCode);
+    }
+
+
+    /**
+     * Creates a Zero-Knowledge Proof (ZKP) referent builder using the provided custom referents.
+     *
+     * @param customReferents A list of user-defined referents to be included in the ZKP generation.
+     * @return ReferentInfo An object used to build ZKP referents for credential proof creation.
+     * @throws WalletCoreException if an error occurs in wallet core operations.
+     * @throws UtilityException if a utility-related error occurs during the referent creation process.
+     */
+    public ReferentInfo createZkpReferent(List<UserReferent> customReferents) throws WalletCoreException, UtilityException {
+        return walletCore.createZkpReferent(customReferents);
+    }
+
+    /**
+     * Creates a Zero-Knowledge Proof (ZKP) for Verifiable Presentation (VP) using the specified wallet token,
+     * proof request profile, proof parameters, and self-attested attributes.
+     *
+     * @param hWalletToken A holder wallet token used to authenticate and authorize the VP generation.
+     * @param proofRequestProfile The profile containing verifier's requirements for proof, such as requested attributes and predicates.
+     * @param proofParams A list of proof parameters including credentials, referents, and other necessary information for ZKP generation.
+     * @param selfAttributes A map of self-attested attributes that are not backed by credentials but are asserted by the prover.
+     * @param txId A transaction ID used for tracking or logging the proof creation process.
+     * @return P311RequestVo An object representing the generated ZKP, which will be used for verifiable presentation.
+     * @throws WalletCoreException if a failure occurs within the wallet core system during the ZKP creation.
+     * @throws UtilityException if any cryptographic or general utility-related issue arises during processing.
+     * @throws WalletException if there is a problem related to the wallet such as invalid state or data.
+     */
+    public P311RequestVo createEncZkpProof(String hWalletToken, ProofRequestProfile proofRequestProfile,
+                                        List<ProofParam> proofParams, Map<String, String> selfAttributes, String txId) throws WalletCoreException, UtilityException, WalletException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.PRESENT_VP,
+                                                            WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC_AND_PRESENT_VP));
+        return walletService.createZkpProof(proofRequestProfile, proofParams, selfAttributes, txId);
+    }
+
+    /**
+     * Searches for available credentials that satisfy the given Zero-Knowledge Proof (ZKP) request.
+     *
+     * @param hWalletToken A holder wallet token used to authenticate and authorize the credential search for proof generation.
+     * @param proofRequest The proof request containing required attributes and predicates specified by the verifier.
+     * @return AvailableReferent An object containing a list of matching credentials and referents that can be used to construct a ZKP.
+     * @throws WalletCoreException if an error occurs within the wallet core while searching for credentials.
+     * @throws UtilityException if a utility or cryptographic error arises during the credential search process.
+     * @throws WalletException if a wallet-specific error occurs, such as invalid or expired token usage.
+     */
+    public AvailableReferent searchZkpCredentials(String hWalletToken, ProofRequest proofRequest) throws WalletCoreException, UtilityException, WalletException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.PRESENT_VP,
+                                                            WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC_AND_PRESENT_VP));
+        return walletCore.searchZkpCredentials(proofRequest);
+    }
+
+    /**
+     * Retrieves all Zero-Knowledge Proof (ZKP)-compatible credentials stored in the wallet.
+     *
+     * @param hWalletToken A holder wallet token used to authenticate and authorize the retrieval of credentials.
+     * @return ArrayList<Credential> A list of credentials that can be used for ZKP-based verifiable presentations.
+     * @throws WalletCoreException if an error occurs within the wallet core during credential retrieval.
+     * @throws UtilityException if a utility or cryptographic error arises while accessing the credentials.
+     * @throws WalletException if a wallet-specific issue occurs, such as token validation failure or access restriction.
+     */
+    public ArrayList<Credential> getAllZkpCredentials(String hWalletToken) throws WalletCoreException, UtilityException, WalletException {
+        this.walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC,
+                                                                                    WalletTokenPurpose.WALLET_TOKEN_PURPOSE.DETAIL_VC,
+                                                                                    WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC_AND_PRESENT_VP));
+        return walletCore.getAllZkpCredentials();
+    }
+
+    /**
+     * Checks whether any Zero-Knowledge Proof (ZKP)-compatible credentials are currently saved in the wallet.
+     *
+     * @return boolean {@code true} if at least one ZKP-compatible credential is stored in the wallet; {@code false} otherwise.
+     * @throws WalletCoreException if an error occurs within the wallet core while accessing credential data.
+     * @throws UtilityException if a utility or cryptographic error arises during the check process.
+     * @throws WalletException if a wallet-related issue occurs, such as internal state or access errors.
+     */
+    public boolean isAnyZkpCredentialsSaved() throws WalletCoreException, UtilityException, WalletException {
+        return walletCore.isAnyZkpCredentialsSaved();
+    }
+
+    /**
+     * Checks whether a Zero-Knowledge Proof (ZKP)-compatible credential associated with the given identifier is saved in the wallet.
+     *
+     * @param identifier A unique identifier (e.g., credential ID or schema ID) used to look up the credential in the wallet.
+     * @return boolean {@code true} if a matching ZKP-compatible credential is found; {@code false} otherwise.
+     * @throws WalletException if a wallet-related error occurs, such as invalid data or access failure.
+     * @throws WalletCoreException if an error occurs within the wallet core while accessing the credential.
+     * @throws UtilityException if a utility or cryptographic error arises during the lookup process.
+     */
+    public boolean isZkpCredentialsSaved(String identifier) throws WalletException, WalletCoreException, UtilityException {
+        return walletCore.isZkpCredentialsSaved(identifier);
+    }
+
+    /**
+     * Retrieves a list of Zero-Knowledge Proof (ZKP)-compatible credentials that match the specified identifiers.
+     *
+     * @param hWalletToken A holder wallet token used to authenticate and authorize access to the requested credentials.
+     * @param identifiers A list of credential identifiers (e.g., credential IDs or schema IDs) used to fetch specific credentials from the wallet.
+     * @return List<Credential> A list of credentials corresponding to the given identifiers that can be used for ZKP-based presentations.
+     * @throws WalletCoreException if an error occurs within the wallet core during credential retrieval.
+     * @throws UtilityException if a utility or cryptographic error arises during the process.
+     * @throws WalletException if a wallet-related issue occurs, such as token validation failure or invalid identifier reference.
+     */
+    public List<Credential> getZkpCredentials(String hWalletToken, List<String> identifiers) throws WalletCoreException, UtilityException, WalletException {
+        walletToken.verifyWalletToken(hWalletToken, List.of(WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC,
+                                                            WalletTokenPurpose.WALLET_TOKEN_PURPOSE.DETAIL_VC,
+                                                            WalletTokenPurpose.WALLET_TOKEN_PURPOSE.LIST_VC_AND_PRESENT_VP));
+        return walletCore.getZkpCredentials(identifiers);
+    }
+
+}

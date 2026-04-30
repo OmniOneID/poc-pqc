@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: API Gateway
+  profiles:
+    default: dev, lss
+    group:
+      dev:
+        - logging
+        - spring-docs
+        - blockchain
+      lss:
+        - lss
+
+server:
+  port: 8093
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true
+

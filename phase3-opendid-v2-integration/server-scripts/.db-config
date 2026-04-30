@@ -1,0 +1,5 @@
+INSTALL_DB=no
+DB_HOST=raondev-seoul-tp-poc-dbinstance.cjocw0q2kfjg.ap-northeast-2.rds.amazonaws.com
+DB_PORT=5432
+DB_USERNAME=omn
+DB_PASSWORD=omn

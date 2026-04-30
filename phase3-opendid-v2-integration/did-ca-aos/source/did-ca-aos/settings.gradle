@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "ca"
+include ':app'
+include ':did-wallet-sdk-aos'
+project(':did-wallet-sdk-aos').projectDir = file('../../../did-client-sdk-aos/source/did-wallet-sdk-aos')

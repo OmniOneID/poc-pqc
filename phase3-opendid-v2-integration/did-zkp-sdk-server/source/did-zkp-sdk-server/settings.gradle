@@ -1,0 +1,3 @@
+rootProject.name = 'did-zkp-sdk-server'
+
+includeBuild '../../../did-crypto-sdk-server/source/did-crypto-sdk-server'

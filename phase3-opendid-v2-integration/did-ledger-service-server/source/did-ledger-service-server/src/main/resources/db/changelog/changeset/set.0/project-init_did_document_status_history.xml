@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.6.xsd">
+
+        <changeSet id="project-init_did_document_status_history" author="gwnam">
+            <createTable tableName="did_document_status_history">
+                <column name="id" type="bigint" autoIncrement="true">
+                    <constraints primaryKey="true" nullable="false" />
+                </column>
+                <column name="did_id" type="bigint">
+                    <constraints nullable="false" />
+                </column>
+                <column name="from_status" type="VARCHAR(20)">
+                    <constraints nullable="true" unique="false"/>
+                </column>
+                <column name="to_status" type="VARCHAR(20)">
+                    <constraints nullable="false" unique="false"/>
+                </column>
+                <column name="version" type="SMALLINT">
+                    <constraints nullable="false" unique="false"/>
+                </column>
+                <column name="reason" type="TEXT">
+                    <constraints nullable="true" unique="false"/>
+                </column>
+                <column name="changed_at" type="TIMESTAMP" defaultValue="NOW()">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="created_at" type="TIMESTAMP" defaultValue="NOW()">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="updated_at" type="TIMESTAMP">
+                    <constraints nullable="true" unique="false" />
+                </column>
+            </createTable>
+        </changeSet>
+
+</databaseChangeLog>

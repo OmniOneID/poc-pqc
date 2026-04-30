@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open DID Sandbox Server for PQC PoC</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Menlo', 'Consolas', 'Monaco', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #161b22; border-bottom: 1px solid #30363d;
+            padding: 16px 24px; display: flex; align-items: center;
+            justify-content: space-between; flex-shrink: 0;
+        }
+        header h1 { font-size: 16px; font-weight: 600; color: #f0f6fc; }
+        header h1 span { color: #58a6ff; }
+        .controls { display: flex; gap: 10px; align-items: center; }
+        .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8b949e; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #f85149; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; }
+        .btn {
+            background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit;
+        }
+        .btn:hover { background: #30363d; }
+
+        .filter-bar {
+            background: #161b22; border-bottom: 1px solid #30363d;
+            padding: 8px 24px; display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+        }
+        .filter-btn {
+            padding: 4px 10px; border-radius: 12px; font-size: 11px; cursor: pointer;
+            border: 1px solid #30363d; background: transparent; color: #8b949e; font-family: inherit;
+        }
+        .filter-btn.active { border-color: #58a6ff; color: #58a6ff; background: rgba(88,166,255,0.1); }
+        .filter-btn.res.active { border-color: #3fb950; color: #3fb950; background: rgba(63,185,80,0.1); }
+        .filter-btn.err.active { border-color: #f85149; color: #f85149; background: rgba(248,81,73,0.1); }
+        .counter { margin-left: auto; font-size: 11px; color: #8b949e; }
+
+        .blacklist-panel {
+            background: #161b22; border-bottom: 1px solid #30363d;
+            padding: 8px 24px; display: none; flex-shrink: 0; gap: 8px;
+            align-items: flex-start; flex-wrap: wrap;
+        }
+        .blacklist-panel.open { display: flex; }
+        .blacklist-panel label { font-size: 11px; color: #8b949e; margin-right: 4px; line-height: 26px; }
+        .bl-tags { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+        .bl-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #21262d; border: 1px solid #30363d; border-radius: 12px;
+            padding: 2px 8px 2px 10px; font-size: 11px; color: #c9d1d9;
+        }
+        .bl-tag .remove { cursor: pointer; color: #f85149; font-weight: 700; font-size: 13px; line-height: 1; }
+        .bl-tag .remove:hover { color: #ff7b72; }
+        .bl-input {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+            color: #c9d1d9; padding: 3px 8px; font-size: 11px; font-family: inherit; width: 180px;
+        }
+        .bl-input::placeholder { color: #484f58; }
+
+        /* ── Main layout: sequence + log ── */
+        .main-area { flex: 1; display: flex; overflow: hidden; }
+
+        /* ── Sequence Diagram Panel ── */
+        .seq-panel {
+            width: 580px; min-width: 580px; flex-shrink: 0;
+            background: #0d1117; border-right: 1px solid #30363d;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .seq-header {
+            display: flex; align-items: center; justify-content: center;
+            padding: 12px 0 0 0; flex-shrink: 0;
+        }
+        .seq-actor {
+            width: 110px; text-align: center; font-size: 13px; font-weight: 700;
+            padding: 8px 0; border-radius: 6px; border: 1px solid #30363d;
+        }
+        .seq-actor.client { color: #58a6ff; background: rgba(88,166,255,0.08); border-color: #58a6ff; }
+        .seq-actor.server { color: #3fb950; background: rgba(63,185,80,0.08); border-color: #3fb950; }
+        .seq-gap { width: 80px; }
+        .seq-body { flex: 1; overflow-y: auto; position: relative; }
+        .seq-body::-webkit-scrollbar { width: 4px; }
+        .seq-body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+        /* Lifelines */
+        .seq-lanes {
+            position: relative; width: 100%; min-height: 100%;
+        }
+        .seq-lanes::before, .seq-lanes::after {
+            content: ''; position: absolute; top: 0; bottom: 0; width: 1px;
+            border-left: 1px dashed #21262d;
+        }
+        .seq-lanes::before { left: 95px; }
+        .seq-lanes::after { right: 95px; }
+
+        /* Arrow row */
+        .seq-row {
+            position: relative; height: 50px; display: flex; align-items: center;
+            padding: 0 20px; cursor: default;
+        }
+        .seq-row.clickable { cursor: pointer; }
+        .seq-row:hover { background: rgba(255,255,255,0.05); }
+        .seq-inspect-btn {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            background: rgba(210,168,255,0.12); border: 1px solid #d2a8ff; color: #d2a8ff;
+            font-size: 10px; padding: 3px 7px; border-radius: 4px; cursor: pointer;
+            font-family: inherit; line-height: 1; z-index: 2;
+        }
+        .seq-inspect-btn:hover { background: rgba(210,168,255,0.25); }
+
+        .seq-arrow {
+            position: absolute; top: 50%; height: 0;
+            left: 96px; right: 96px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .seq-arrow .line {
+            position: absolute; top: 0; left: 0; right: 0; height: 0;
+            border-top: 2px solid;
+        }
+        .seq-arrow.req .line { border-color: #58a6ff; }
+        .seq-arrow.res .line { border-color: #3fb950; border-top-style: dashed; }
+        .seq-arrow.err .line { border-color: #f85149; border-top-style: dashed; }
+
+        /* Arrowhead */
+        .seq-arrow .head {
+            position: absolute; top: -5px; width: 0; height: 0;
+            border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+        }
+        .seq-arrow.req .head {
+            right: 0; border-left: 8px solid #58a6ff;
+        }
+        .seq-arrow.res .head {
+            left: 0; border-right: 8px solid #3fb950;
+        }
+        .seq-arrow.err .head {
+            left: 0; border-right: 8px solid #f85149;
+        }
+
+        /* Label on arrow */
+        .seq-label {
+            position: relative; z-index: 1;
+            background: #0d1117; padding: 0 8px;
+            font-size: 13px; color: #8b949e; white-space: nowrap;
+            text-align: center;
+        }
+        .seq-row.highlight .seq-label { color: #d2a8ff; }
+        .seq-time {
+            position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
+            font-size: 9px; color: #484f58;
+        }
+
+        /* ── Log Panel ── */
+        #log-container { flex: 1; overflow-y: auto; padding: 12px 24px; }
+
+        .log-entry {
+            padding: 8px 12px; margin-bottom: 4px; border-radius: 6px;
+            font-size: 12.5px; line-height: 1.6; border-left: 3px solid transparent;
+            animation: fadeIn 0.2s ease; word-break: break-all;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .log-entry.req { background: rgba(88,166,255,0.05); border-left-color: #58a6ff; }
+        .log-entry.res { background: rgba(63,185,80,0.05); border-left-color: #3fb950; }
+        .log-entry.err { background: rgba(248,81,73,0.08); border-left-color: #f85149; }
+        .log-entry.highlight {
+            background: rgba(210,168,255,0.1); border-left-color: #d2a8ff;
+            border-left-width: 4px; cursor: pointer;
+        }
+        .log-entry.highlight:hover { background: rgba(210,168,255,0.18); }
+        .log-entry.highlight .log-uri::after {
+            content: '  inspect'; color: #d2a8ff; font-size: 10px; font-weight: 400; font-style: italic;
+        }
+
+        .log-time { color: #484f58; margin-right: 8px; }
+        .log-tag { font-weight: 700; margin-right: 6px; }
+        .log-tag.req { color: #58a6ff; }
+        .log-tag.res { color: #3fb950; }
+        .log-tag.err { color: #f85149; }
+        .log-method { color: #d2a8ff; font-weight: 600; margin-right: 4px; }
+        .log-uri { color: #f0f6fc; font-weight: 500; }
+        .log-body {
+            color: #8b949e; display: block; margin-top: 4px; padding-left: 16px;
+            max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+        }
+
+        .log-entry { position: relative; }
+        .copy-btn {
+            position: absolute; right: 8px; top: 8px;
+            background: rgba(139,148,158,0.15); border: 1px solid #30363d; color: #8b949e;
+            font-size: 11px; padding: 2px 7px; border-radius: 4px; cursor: pointer;
+            font-family: inherit; line-height: 1.4; opacity: 0; transition: opacity 0.15s;
+        }
+        .log-entry:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { background: rgba(139,148,158,0.3); color: #f0f6fc; }
+        .copy-btn.copied { color: #3fb950; border-color: #3fb950; }
+
+        .modal-copy-btn {
+            background: rgba(139,148,158,0.15); border: 1px solid #30363d; color: #8b949e;
+            font-size: 11px; padding: 3px 10px; border-radius: 4px; cursor: pointer;
+            font-family: inherit; line-height: 1.4;
+        }
+        .modal-copy-btn:hover { background: rgba(139,148,158,0.3); color: #f0f6fc; }
+        .modal-copy-btn.copied { color: #3fb950; border-color: #3fb950; }
+
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #484f58; }
+        .empty-state p { margin-top: 8px; font-size: 13px; }
+        #log-container::-webkit-scrollbar { width: 6px; }
+        #log-container::-webkit-scrollbar-track { background: transparent; }
+        #log-container::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #161b22; border: 1px solid #30363d; border-radius: 10px; width: 80vw; max-width: 900px; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal-header { padding: 14px 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { font-size: 14px; color: #f0f6fc; font-weight: 600; }
+        .modal-header .close { cursor: pointer; color: #8b949e; font-size: 28px; line-height: 1; background: none; border: none; padding: 4px 8px; }
+        .modal-header .close:hover { color: #f0f6fc; }
+        .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+        .modal-label { font-size: 11px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .modal-section { margin-bottom: 16px; }
+        .modal-section:last-child { margin-bottom: 0; }
+        .modal-json { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; overflow-x: auto; }
+        .modal-json pre { font-size: 12px; line-height: 1.5; color: #c9d1d9; white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span>PQC</span> PoC - Open DID Sandbox Server</h1>
+        <div class="controls">
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <button class="btn" id="entityRegBtn" onclick="runEntityRegistration()" style="border-color:#f0883e;color:#f0883e;">Entity Registration</button>
+            <button class="btn" onclick="window.open('/demo','_blank')" style="border-color:#3fb950;color:#3fb950;">VP Submission</button>
+            <button class="btn" id="inspectFilterBtn" onclick="toggleInspectFilter()" style="border-color:#d2a8ff;color:#d2a8ff;">Inspect Only</button>
+            <button class="btn" onclick="toggleAutoScroll()">Auto-scroll: ON</button>
+            <button class="btn" onclick="clearLogs()">Clear</button>
+        </div>
+    </header>
+
+    <div class="filter-bar">
+        <button class="filter-btn req active" onclick="toggleFilter('req', this)">REQ</button>
+        <button class="filter-btn res active" onclick="toggleFilter('res', this)">RES</button>
+        <button class="filter-btn err active" onclick="toggleFilter('err', this)">ERR</button>
+        <span class="counter" id="logCount">0 entries</span>
+    </div>
+
+    <div class="blacklist-panel" id="blacklistPanel" style="display:none;">
+        <label>Excluded URIs:</label>
+        <div class="bl-tags" id="blTags"></div>
+        <input class="bl-input" id="blInput" placeholder="/path/to/exclude" onkeydown="if(event.key==='Enter')addBl()">
+        <button class="btn" onclick="addBl()" style="padding:3px 10px;">Add</button>
+    </div>
+
+    <div class="main-area">
+        <!-- Sequence Diagram -->
+        <div class="seq-panel">
+            <div class="seq-header">
+                <div class="seq-actor client">Client</div>
+                <div class="seq-gap"></div>
+                <div class="seq-actor server">Server</div>
+            </div>
+            <div class="seq-body" id="seq-body">
+                <div class="seq-lanes" id="seq-lanes"></div>
+            </div>
+        </div>
+
+        <!-- Log -->
+        <div id="log-container">
+            <div class="empty-state" id="emptyState"><p>Waiting for API requests...</p></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Inspect</h2>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="modal-copy-btn" onclick="copyModalContent(this)">Copy</button>
+                    <button class="close" onclick="closeModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        let autoScroll = true;
+        let totalCount = 0;
+        let logSeqId = 0;
+        const decodedCache = {};
+        const filters = { req: true, res: true, err: true };
+        let inspectOnly = false;
+
+        // ══════════════════════════════════════════════════════
+        //  DISPLAY RULES
+        // ══════════════════════════════════════════════════════
+        const DISPLAY_RULES = [
+            {
+                name: 'DID Document',
+                uri: '/api-gateway/api/v1/did-doc',
+                type: 'res',
+                highlight: true,
+                inspect(body) {
+                    const obj = deepParse(body);
+                    const encoded = obj.didDoc || obj.didDocument;
+                    if (!encoded) return rawSection(body);
+                    const decoded = mb_decode(encoded);
+                    const parsed = tryJson(decoded);
+                    return section('Encoded (MultiBase)', truncate(encoded, 100))
+                         + section('Decoded DID Document', jsonBlock(parsed));
+                }
+            },
+            {
+                name: 'Certificate VC (CAS)',
+                uri: '/cas/api/v1/certificate-vc',
+                type: 'res',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const vc = deepParse(body);
+                        return section('Certificate VC', jsonBlock(vc));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Sign Wallet (REQ)',
+                uri: '/wallet/api/v1/request-sign-wallet',
+                type: 'req',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const didDoc = deepParse(body);
+                        return section('DID Document (Request)', jsonBlock(didDoc));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Sign Wallet (RES)',
+                uri: '/wallet/api/v1/request-sign-wallet',
+                type: 'res',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const obj = deepParse(body);
+                        const encoded = (obj.attestedDidDoc && obj.attestedDidDoc.ownerDidDoc) || obj.ownerDidDoc;
+                        if (!encoded) return rawSection(body);
+                        const decoded = mb_decode(encoded);
+                        const parsed = tryJson(decoded);
+                        return section('ownerDidDoc (Decoded)', jsonBlock(parsed));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Register Wallet (REQ)',
+                uri: '/tas/api/v1/request-register-wallet',
+                type: 'req',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const obj = deepParse(body);
+                        const encoded = obj.ownerDidDoc || (obj.attestedDidDoc && obj.attestedDidDoc.ownerDidDoc);
+                        if (!encoded) return rawSection(body);
+                        const decoded = mb_decode(encoded);
+                        const parsed = tryJson(decoded);
+                        return section('ownerDidDoc (Decoded)', jsonBlock(parsed));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Request ECDH (REQ)',
+                uri: '/tas/api/v1/request-ecdh',
+                type: 'req',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const obj = deepParse(body);
+                        return section('reqEcdh', jsonBlock(obj.reqEcdh));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Request ECDH (RES)',
+                uri: '/tas/api/v1/request-ecdh',
+                type: 'res',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const obj = deepParse(body);
+                        return section('accEcdh', jsonBlock(obj.accEcdh));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Request Verify (REQ)',
+                uri: '/verifier/api/v1/request-verify',
+                type: 'req',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const cached = decodedCache['/verifier/api/v1/request-verify'];
+                        if (cached) return section('Decrypted VP (from server)', jsonBlock(cached));
+                        const obj = deepParse(body);
+                        return section('Request (encVp is encrypted)', jsonBlock(obj));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Register User (REQ)',
+                uri: '/tas/api/v1/request-register-user',
+                type: 'req',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const obj = deepParse(body);
+                        const encoded = obj.ownerDidDoc || (obj.signedDidDoc && obj.signedDidDoc.ownerDidDoc);
+                        if (!encoded) return rawSection(body);
+                        const decoded = mb_decode(encoded);
+                        const parsed = tryJson(decoded);
+                        return section('ownerDidDoc (Decoded)', jsonBlock(parsed));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Register DID (REQ)',
+                uri: '/tas/admin/v1/entities/register-did/public',
+                type: 'req',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const obj = deepParse(body);
+                        const encoded = obj.didDoc;
+                        if (!encoded) return rawSection(body);
+                        const decoded = mb_decode(encoded);
+                        const parsed = tryJson(decoded);
+                        return section('Encoded didDoc (MultiBase)', truncate(encoded, 120))
+                             + section('Decoded DID Document', jsonBlock(parsed));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Enroll Entity (RES)',
+                uri: '/tas/api/v1/request-enroll-entity',
+                type: 'res',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const cached = decodedCache['/tas/api/v1/request-enroll-entity'];
+                        if (cached) return section('Decrypted Certificate VC (from server)', jsonBlock(cached));
+                        const obj = deepParse(body);
+                        return section('Response (encVc is encrypted)', jsonBlock(obj));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+            {
+                name: 'Issue VC (RES)',
+                uri: '/tas/api/v1/request-issue-vc',
+                type: 'res',
+                highlight: true,
+                inspect(body) {
+                    try {
+                        const cached = decodedCache['/tas/api/v1/request-issue-vc'];
+                        if (cached) return section('Decrypted VC (from server)', jsonBlock(cached));
+                        const obj = deepParse(body);
+                        return section('Response (encVc is encrypted)', jsonBlock(obj));
+                    } catch(e) { return rawSection(body); }
+                }
+            },
+        ];
+
+        // ── Multibase decode ──
+        function mb_decode(str) {
+            if (!str || str.length < 2) return str;
+            const p = str.charAt(0), d = str.substring(1);
+            try {
+                if (p === 'm' || p === 'M') return atob(d);
+                if (p === 'u' || p === 'U') return atob(d.replace(/-/g, '+').replace(/_/g, '/'));
+                if (p === 'z') return b58_decode(d);
+            } catch(e) {}
+            try { return atob(str); } catch(e) {}
+            return str;
+        }
+        function b58_decode(str) {
+            const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            const bytes = [0];
+            for (const ch of str) {
+                let c = A.indexOf(ch); if (c < 0) return str;
+                for (let j = 0; j < bytes.length; j++) { c += bytes[j] * 58; bytes[j] = c & 0xff; c >>= 8; }
+                while (c > 0) { bytes.push(c & 0xff); c >>= 8; }
+            }
+            for (const ch of str) { if (ch === '1') bytes.push(0); else break; }
+            return new TextDecoder().decode(new Uint8Array(bytes.reverse()));
+        }
+        function tryJson(s) { if (typeof s === 'object' && s !== null) return s; try { return JSON.parse(s); } catch(e) { return s; } }
+        function deepParse(s) { let o = s; for (let i = 0; i < 3; i++) { if (typeof o !== 'string') return o; try { o = JSON.parse(o); } catch(e) { return o; } } return o; }
+        function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function jsonBlock(o) { if (typeof o === 'string') { try { o = JSON.parse(o); } catch(e) {} } return '<div class="modal-json"><pre>' + esc(JSON.stringify(o, null, 2)) + '</pre></div>'; }
+        function section(l, c) { return `<div class="modal-section"><div class="modal-label">${esc(l)}</div>${c}</div>`; }
+        function rawSection(b) { return section('Raw', jsonBlock(b)); }
+        function truncate(s, n) { return s.length > n ? '<code>' + esc(s.substring(0, n)) + '...</code>' : '<code>' + esc(s) + '</code>'; }
+        var escapeHtml = esc;
+
+        // ── Rule matching ──
+        function findRule(type, uri) { return DISPLAY_RULES.find(r => uri.includes(r.uri) && r.type === type); }
+
+        // ── Shorten URI for sequence label ──
+        function shortUri(uri) {
+            const parts = uri.split('/');
+            const last = parts[parts.length - 1] || parts[parts.length - 2] || uri;
+            return last.length > 14 ? last.substring(0, 14) : last;
+        }
+
+        // ── Sequence Diagram ──
+        function scrollToLog(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.style.outline = '2px solid #58a6ff';
+            el.style.outlineOffset = '-2px';
+            setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 1500);
+        }
+
+        function appendSeqRow(type, parts, rule, logId) {
+            const lanes = document.getElementById('seq-lanes');
+            const row = document.createElement('div');
+            row.className = 'seq-row clickable';
+            row.dataset.type = type;
+
+            const time = new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            const hasInspect = rule && rule.highlight;
+            row.dataset.inspect = hasInspect ? 'true' : 'false';
+            if (!shouldShow(type, hasInspect)) row.style.display = 'none';
+            row.innerHTML =
+                `<span class="seq-time">${time}</span>` +
+                `<div class="seq-arrow ${type}">` +
+                    `<div class="line"></div>` +
+                    `<div class="head"></div>` +
+                    `<span class="seq-label">${esc(parts.uri)}</span>` +
+                `</div>` +
+                (hasInspect ? `<button class="seq-inspect-btn">inspect</button>` : '');
+
+            row.onclick = () => scrollToLog(logId);
+            if (hasInspect) {
+                row.querySelector('.seq-inspect-btn').onclick = (e) => {
+                    e.stopPropagation();
+                    openInspect(rule, parts);
+                };
+            }
+
+            lanes.appendChild(row);
+
+            const seqBody = document.getElementById('seq-body');
+            if (autoScroll) seqBody.scrollTop = seqBody.scrollHeight;
+
+            return row;
+        }
+
+        // ── Log rendering ──
+        function connect() {
+            const source = new EventSource('/api/log-stream');
+            source.addEventListener('req', e => appendLog('req', e.data));
+            source.addEventListener('res', e => appendLog('res', e.data));
+            source.addEventListener('err', e => appendLog('err', e.data));
+            source.addEventListener('decoded', e => {
+                const raw = e.data;
+                const m = raw.match(/^\[DECODED\]\s*\S+\s+(\/\S+)\s*\|\s*([\s\S]*)$/);
+                if (m) decodedCache[m[1]] = m[2];
+            });
+            source.onopen = () => { document.getElementById('statusDot').classList.add('connected'); document.getElementById('statusText').textContent = 'Connected'; };
+            source.onerror = () => { document.getElementById('statusDot').classList.remove('connected'); document.getElementById('statusText').textContent = 'Reconnecting...'; };
+        }
+
+        function appendLog(type, raw) {
+            const container = document.getElementById('log-container');
+            const empty = document.getElementById('emptyState');
+            if (empty) empty.remove();
+            const parts = parseLog(type, raw);
+            const rule = findRule(type, parts.uri);
+
+            const seqId = 'log-' + (++logSeqId);
+
+            // Log entry
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.id = seqId;
+            entry.dataset.type = type;
+            const isInspect = rule && rule.highlight;
+            if (isInspect) { entry.classList.add('highlight'); entry.onclick = () => openInspect(rule, parts); }
+            if (!shouldShow(type, isInspect)) entry.style.display = 'none';
+            const time = new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+            let html = `<span class="log-time">${time}</span><span class="log-tag ${type}">[${type.toUpperCase()}]</span><span class="log-method">${parts.method}</span><span class="log-uri">${parts.uri}</span>`;
+            if (parts.body && parts.body.trim()) {
+                let f = parts.body.trim();
+                try {
+                    let parsed = JSON.parse(f);
+                    while (typeof parsed === 'string') { parsed = JSON.parse(parsed); }
+                    f = JSON.stringify(parsed);
+                } catch(e) {}
+                html += `<span class="log-body">${esc(f)}</span>`;
+                html += `<button class="copy-btn" onclick="event.stopPropagation();copyFromSibling(this)">Copy</button>`;
+            }
+            entry.innerHTML = html;
+            container.appendChild(entry);
+
+            // Sequence diagram (after log entry is in DOM)
+            appendSeqRow(type, parts, rule, seqId);
+
+            totalCount++;
+            document.getElementById('logCount').textContent = totalCount + ' entries';
+            if (autoScroll) container.scrollTop = container.scrollHeight;
+        }
+
+        function parseLog(type, raw) {
+            const w = raw.replace(/^\[(REQ|RES|ERR)\]\s*/, '');
+            const i = w.indexOf(' | ');
+            let mu, body;
+            if (i >= 0) { mu = w.substring(0, i); body = w.substring(i + 3); } else { mu = w; body = ''; }
+            const s = mu.indexOf(' ');
+            return { method: s >= 0 ? mu.substring(0, s) : mu, uri: s >= 0 ? mu.substring(s + 1) : '', body };
+        }
+
+        // ── Copy helpers ──
+        function copyFromSibling(btn) {
+            const body = btn.parentElement.querySelector('.log-body');
+            if (!body) return;
+            navigator.clipboard.writeText(body.textContent).then(() => {
+                btn.textContent = 'Copied!'; btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+            });
+        }
+        function copyModalContent(btn) {
+            const body = document.getElementById('modalBody');
+            // pre 태그들의 텍스트를 모아서 복사
+            const pres = body.querySelectorAll('pre');
+            let text = '';
+            if (pres.length > 0) {
+                pres.forEach(p => { text += p.textContent + '\n'; });
+            } else {
+                text = body.textContent;
+            }
+            navigator.clipboard.writeText(text.trim()).then(() => {
+                btn.textContent = 'Copied!'; btn.classList.add('copied');
+                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+            });
+        }
+
+        // ── Modal ──
+        function openInspect(rule, parts) {
+            document.getElementById('modalTitle').textContent = rule.name + ' \u2014 ' + parts.method + ' ' + parts.uri;
+            let html;
+            try { html = rule.inspect(parts.body); }
+            catch(e) { html = section('Error', e.message) + rawSection(parts.body); }
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('modal').classList.add('open');
+        }
+        function closeModal() { document.getElementById('modal').classList.remove('open'); }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        // ── Controls ──
+        function shouldShow(type, isInspect) {
+            if (!filters[type]) return false;
+            if (inspectOnly && !isInspect) return false;
+            return true;
+        }
+        function applyFilters() {
+            document.querySelectorAll('.seq-row').forEach(el => {
+                el.style.display = shouldShow(el.dataset.type, el.dataset.inspect === 'true') ? '' : 'none';
+            });
+            document.querySelectorAll('.log-entry').forEach(el => {
+                el.style.display = shouldShow(el.dataset.type, el.classList.contains('highlight')) ? '' : 'none';
+            });
+        }
+        function toggleFilter(type, btn) {
+            filters[type] = !filters[type]; btn.classList.toggle('active');
+            applyFilters();
+        }
+        function toggleInspectFilter() {
+            inspectOnly = !inspectOnly;
+            const btn = document.getElementById('inspectFilterBtn');
+            btn.style.background = inspectOnly ? 'rgba(210,168,255,0.2)' : '';
+            btn.textContent = inspectOnly ? 'Inspect Only: ON' : 'Inspect Only';
+            applyFilters();
+        }
+        function toggleAutoScroll() { autoScroll = !autoScroll; event.target.textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF'); }
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = '<div class="empty-state" id="emptyState"><p>Waiting for API requests...</p></div>';
+            document.getElementById('seq-lanes').innerHTML = '';
+            totalCount = 0; document.getElementById('logCount').textContent = '0 entries';
+        }
+
+        // ── Entity Registration ──
+        async function runEntityRegistration() {
+            const btn = document.getElementById('entityRegBtn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            btn.style.opacity = '0.6';
+            try {
+                const res = await fetch('/api/entity-registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entityDid: 'did:omn:issuer', entityName: 'Issuer' })
+                });
+                const data = await res.json();
+                // 결과를 모달로 표시
+                document.getElementById('modalTitle').textContent = 'Entity Registration ' + (data.status === 'SUCCESS' ? 'Success' : 'Failed');
+                let html = section('Status', '<code>' + esc(data.status) + '</code>');
+                if (data.txId) html += section('Transaction ID', '<code>' + esc(data.txId) + '</code>');
+                if (data.steps) {
+                    const stepsHtml = data.steps.map(s =>
+                        `<div style="margin:4px 0;font-size:12px;">`
+                        + `<span style="color:${s.status==='OK'?'#3fb950':'#f85149'};font-weight:700;">Step ${s.step}</span> `
+                        + `<span style="color:#8b949e;">${esc(s.name)}</span> `
+                        + `<span style="color:${s.status==='OK'?'#3fb950':'#f85149'};">${esc(s.status)}</span>`
+                        + `</div>`
+                    ).join('');
+                    html += section('Steps', stepsHtml);
+                }
+                if (data.didDocument) html += section('DID Document', jsonBlock(data.didDocument));
+                if (data.certificateVc) html += section('Certificate VC', jsonBlock(data.certificateVc));
+                if (data.error) html += section('Error', '<code style="color:#f85149;">' + esc(data.error) + '</code>');
+                document.getElementById('modalBody').innerHTML = html;
+                document.getElementById('modal').classList.add('open');
+            } catch (e) {
+                alert('Entity Registration failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Entity Registration';
+                btn.style.opacity = '';
+            }
+        }
+
+        // ── Blacklist ──
+        function toggleBlacklist() { document.getElementById('blacklistPanel').classList.toggle('open'); }
+        async function loadBlacklist() { const r = await fetch('/api/log-blacklist'); renderBlTags(await r.json()); }
+        function renderBlTags(list) {
+            const c = document.getElementById('blTags'); c.innerHTML = '';
+            list.forEach(u => { const t = document.createElement('span'); t.className = 'bl-tag'; t.innerHTML = `${esc(u)} <span class="remove" onclick="removeBl('${esc(u)}')">&times;</span>`; c.appendChild(t); });
+        }
+        async function addBl() {
+            const input = document.getElementById('blInput'), uri = input.value.trim(); if (!uri) return;
+            const r = await fetch('/api/log-blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uri }) });
+            renderBlTags(await r.json()); input.value = '';
+        }
+        async function removeBl(uri) {
+            const r = await fetch('/api/log-blacklist/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uri }) });
+            renderBlTags(await r.json());
+        }
+
+        loadBlacklist();
+        connect();
+    </script>
+</body>
+</html>

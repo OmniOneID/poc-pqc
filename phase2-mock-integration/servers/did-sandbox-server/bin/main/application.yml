@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: Sandbox Server
+  cache:
+    type: simple
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+
+server:
+  port: 8084
+
+vc:
+  issuance-mode: DIRECT
+  proxy-port: 8093
+
+# PQC 알고리즘 설정
+# signature-algorithm:
+#   Secp256r1 : 기존 ECC (기본값)
+#   MlDsa44   : PQC ML-DSA-44 (FIPS 204)
+# key-agreement-algorithm:
+#   Secp256r1 : 기존 ECDH (기본값)
+#   MlKem768  : PQC ML-KEM-768 (FIPS 203)
+pqc:
+  signature-algorithm: MlDsa44
+  key-agreement-algorithm: MlKem768
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true
+
+

@@ -1,0 +1,11 @@
+spring:
+  profiles:
+    active: dev, lss
+
+springdoc:
+  server:
+    url: http://10.48.17.123:6363
+
+observer:
+  url: http://127.0.0.1:18080
+  service-name: did-api-server

@@ -1,0 +1,9 @@
+logging:
+  group:
+    repository:
+      - org.omnione.did.repository
+    base:
+      - org.omnione.did.base
+  level:
+    repository: debug
+    base: info
