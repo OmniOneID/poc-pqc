@@ -1,13 +1,13 @@
 {
   "userInfo" : {
-    "pii" : "b0bc6cf92af4dede0acbea105426e100b4a6a1ffe28741535b3c649ef45ecfb5",
+    "pii" : "834413572def464d3f1ec29d5263540ae6545c546a79452c30d0ebfbb930187b",
     "firstname" : "Test",
     "vcSchemaIndex" : null,
     "vcSchemaId" : null,
     "vcSchemaTitle" : null,
-    "userId" : "f650968a",
+    "userId" : "3fd4cf98",
     "did" : null,
     "email" : null,
-    "lastname" : "UserPerf"
+    "lastname" : "User001"
   }
 }

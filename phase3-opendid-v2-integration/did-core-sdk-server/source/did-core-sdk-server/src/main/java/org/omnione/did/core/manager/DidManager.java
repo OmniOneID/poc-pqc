@@ -400,7 +400,6 @@ public class DidManager {
             SignatureParams sigParams = new SignatureParams();
             String originJson = tmpDidDocument.toJson();
             sigParams.setOriginData(originJson);
-            System.err.println("[PQC_DEBUG] verifyDocumentSignature originData[" + tmpProof.getProofPurpose() + "]: " + originJson);
 
             String keyId = getKeyIdByDidKeyUrl(tmpProof.getVerificationMethod());
             VerificationMethod verificationMethod = getVerificationMethodByKeyId(keyId);

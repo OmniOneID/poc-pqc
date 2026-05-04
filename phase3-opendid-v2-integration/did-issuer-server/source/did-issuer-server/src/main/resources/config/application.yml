@@ -48,3 +48,6 @@ tas:
 issuer:
   test:
     auto-create-user: true
+
+observer:
+  enabled: false # did-observer-server 호출 ON/OFF (성능 측정 시 false 권장)

@@ -42,3 +42,9 @@ management:
 app:
   config:
     file-path: ${CONFIG_FILE_PATH:./config/config.json}
+
+logging:
+  level:
+    root: ERROR # 성능 측정 시 로그 최소화
+    # application-logging.yml(내부)에서 debug로 설정된 패키지를 명시적으로 덮어씀
+    org.omnione: ERROR

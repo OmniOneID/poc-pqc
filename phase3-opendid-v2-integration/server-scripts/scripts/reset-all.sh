@@ -44,7 +44,7 @@ if [ -f "$POSTGRES_CONFIG_FILE" ]; then
     [ -n "$_stored" ] && POSTGRES_CONTAINER_NAME="$_stored"
 fi
 
-DB_LIST=("tas" "issuer" "verifier" "cas" "wallet" "lss")
+DB_LIST=("tas" "issuer" "verifier" "cas" "wallet" "lss" "observer")
 
 echo "============================================================"
 echo "  OpenDID PoC Full Reset"

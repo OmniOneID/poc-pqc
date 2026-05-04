@@ -18,7 +18,7 @@ export PGPASSWORD="${POSTGRES_PASSWORD:-omn}"
 if [ $# -gt 0 ]; then
     DB_LIST=("$@")
 else
-    DB_LIST=("tas" "issuer" "verifier" "cas" "wallet" "lss" "op")
+    DB_LIST=("tas" "issuer" "verifier" "cas" "wallet" "lss" "op" "observer")
 fi
 
 echo "============================================================"

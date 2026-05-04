@@ -48,6 +48,7 @@ server:
   port: 8090
 
 observer:
+  enabled: false # did-observer-server 호출 ON/OFF (성능 측정 시 false 권장)
   url: http://127.0.0.1:18080
   service-name: did-ta-server
 

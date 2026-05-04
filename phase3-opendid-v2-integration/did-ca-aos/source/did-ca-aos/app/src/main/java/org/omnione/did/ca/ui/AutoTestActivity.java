@@ -101,6 +101,11 @@ public class AutoTestActivity extends AppCompatActivity {
     private static final int A_MAX_CONSECUTIVE_ERRORS = 5;
     private static final int D_MAX_CONSECUTIVE_ERRORS = 5;
 
+    // 반복(iteration) 진행 로그 출력 여부.
+    // false: 시나리오 start/abort/warmup-done, 최종 리포트, 에러만 logcat 에 출력 (성능 측정 권장).
+    // true: REG/ISSUE/VP/ITER_DONE 등 매 반복 라인도 출력.
+    private static final boolean LOG_ITERATION_PROGRESS = false;
+
     private static final int DEFAULT_WARMUP = 0;
     private static final int DEFAULT_MEASUREMENT = 1;
     private static final int WARMUP_MIN = 0;
@@ -765,7 +770,7 @@ public class AutoTestActivity extends AppCompatActivity {
                     "%s roundtrip=%dms server=%dms network=%dms clientCrypto=%dms",
                     tag, ns2ms(roundtripNs), ns2ms(serverNs), ns2ms(networkNs), ns2ms(clientCryptoNs));
             appendStatus(line);
-            Log.i(TAG_D, line);
+            logIter(TAG_D, line);
             return true;
 
         } catch (Exception e) {
@@ -1194,7 +1199,7 @@ public class AutoTestActivity extends AppCompatActivity {
     private void runScenarioBIteration(int index, boolean isWarmup) {
         String tag = iterTag(index, isWarmup);
         appendStatus("\n" + tag + " 반복 시작");
-        Log.i(TAG, tag + " B --- start ---");
+        logIter(TAG, tag + " B --- start ---");
 
         appendStatus("  P210 VC 발급...");
         long issueStart = System.nanoTime();
@@ -1220,7 +1225,7 @@ public class AutoTestActivity extends AppCompatActivity {
                         appendStatus("  P210 완료: total=" + msStr(issueNs)
                                 + " | server=" + msStr(serverNs)
                                 + " | app=" + msStr(appNs));
-                        Log.i(TAG, tag + " B:ISSUE total=" + msStr(issueNs)
+                        logIter(TAG, tag + " B:ISSUE total=" + msStr(issueNs)
                                 + " server=" + msStr(serverNs)
                                 + " app=" + msStr(appNs));
 
@@ -1229,7 +1234,7 @@ public class AutoTestActivity extends AppCompatActivity {
                             bResults.add(new long[]{issueNs, serverNs, appNs});
                         }
 
-                        Log.i(TAG, tag + " B:ITER_DONE total=" + ns2ms(issueNs)
+                        logIter(TAG, tag + " B:ITER_DONE total=" + ns2ms(issueNs)
                                 + "ms server=" + ns2ms(serverNs)
                                 + "ms app=" + ns2ms(appNs) + "ms");
                         advanceIterationB(index, isWarmup);
@@ -1566,7 +1571,7 @@ public class AutoTestActivity extends AppCompatActivity {
     private void runScenarioCIteration(int index, boolean isWarmup) {
         String tag = iterTag(index, isWarmup);
         appendStatus("\n" + tag + " 반복 시작");
-        Log.i(TAG_C, tag + " C --- start ---");
+        logIter(TAG_C, tag + " C --- start ---");
 
         appendStatus("  P310 VP 제출...");
         long vpStart = System.nanoTime();
@@ -1725,7 +1730,7 @@ public class AutoTestActivity extends AppCompatActivity {
                         appendStatus("  P310 완료: total=" + msStr(vpNs)
                                 + " | server=" + msStr(serverNs)
                                 + " | app=" + msStr(appNs));
-                        Log.i(TAG_C, tag + " C:VP total=" + msStr(vpNs)
+                        logIter(TAG_C, tag + " C:VP total=" + msStr(vpNs)
                                 + " server=" + msStr(serverNs)
                                 + " app=" + msStr(appNs));
 
@@ -1734,7 +1739,7 @@ public class AutoTestActivity extends AppCompatActivity {
                             cResults.add(new long[]{vpNs, serverNs, appNs});
                         }
 
-                        Log.i(TAG_C, tag + " C:ITER_DONE"
+                        logIter(TAG_C, tag + " C:ITER_DONE"
                                 + " total=" + ns2ms(vpNs) + "ms"
                                 + " server=" + ns2ms(serverNs) + "ms"
                                 + " app=" + ns2ms(appNs) + "ms");
@@ -1943,10 +1948,14 @@ public class AutoTestActivity extends AppCompatActivity {
         return "[MEASURE " + (index + 1) + "/" + measurementCount + "]";
     }
 
+    private static void logIter(String tag, String msg) {
+        if (LOG_ITERATION_PROGRESS) Log.i(tag, msg);
+    }
+
     private void runIteration(int index, boolean isWarmup) {
         String tag = iterTag(index, isWarmup);
         appendStatus("\n" + tag + " 반복 시작");
-        Log.i(TAG, tag + " --- start ---");
+        logIter(TAG, tag + " --- start ---");
 
         try {
             appendStatus("  초기화 중...");
@@ -2119,7 +2128,7 @@ public class AutoTestActivity extends AppCompatActivity {
 
                             long regNs = System.nanoTime() - regStart;
                             appendStatus("  P132 완료: " + msStr(regNs));
-                            Log.i(TAG, tag + " REG " + msStr(regNs));
+                            logIter(TAG, tag + " REG " + msStr(regNs));
 
                             appendStatus("  P210 VC 발급...");
                             long issueStart = System.nanoTime();
@@ -2175,7 +2184,7 @@ public class AutoTestActivity extends AppCompatActivity {
                     public void onSuccess(ProtocolData execData) {
                         long issueNs = System.nanoTime() - issueStart;
                         appendStatus("  P210 완료: " + msStr(issueNs));
-                        Log.i(TAG, tag + " ISSUE " + msStr(issueNs));
+                        logIter(TAG, tag + " ISSUE " + msStr(issueNs));
 
                         appendStatus("  P310 VP 제출...");
                         long vpStart = System.nanoTime();
@@ -2297,7 +2306,7 @@ public class AutoTestActivity extends AppCompatActivity {
                     public void onSuccess(ProtocolData execData) {
                         long vpNs = System.nanoTime() - vpStart;
                         appendStatus("  P310 완료: " + msStr(vpNs));
-                        Log.i(TAG, tag + " VP " + msStr(vpNs));
+                        logIter(TAG, tag + " VP " + msStr(vpNs));
 
                         aConsecErrors = 0;
                         long totalNs = regNs + issueNs + vpNs;
@@ -2308,7 +2317,7 @@ public class AutoTestActivity extends AppCompatActivity {
                         String summary = String.format("  전체: REG=%s ISSUE=%s VP=%s TOTAL=%s",
                                 msStr(regNs), msStr(issueNs), msStr(vpNs), msStr(totalNs));
                         appendStatus(summary);
-                        Log.i(TAG, tag + " ITER_DONE"
+                        logIter(TAG, tag + " ITER_DONE"
                                 + " reg=" + ns2ms(regNs) + "ms"
                                 + " issue=" + ns2ms(issueNs) + "ms"
                                 + " vp=" + ns2ms(vpNs) + "ms"

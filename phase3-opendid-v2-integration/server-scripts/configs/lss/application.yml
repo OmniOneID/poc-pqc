@@ -1,7 +1,17 @@
 spring:
   profiles:
     active: dev, lss
+  jpa:
+    show-sql: false # 성능 측정 시 Hibernate SQL 출력 끔
 
 springdoc:
   server:
     url: http://10.48.17.123:4141
+
+logging:
+  level:
+    root: ERROR # 성능 측정 시 로그 최소화
+    # application-logging.yml(내부)에서 debug/info로 설정된 logging group을 명시적으로 덮어씀
+    repository: ERROR
+    base: ERROR
+    liquibase: 'OFF' # DB 마이그레이션 changeset 실행 로그 끔

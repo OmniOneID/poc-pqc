@@ -19,6 +19,10 @@ package org.omnione.did.ca.logger;
 import android.util.Log;
 
 public class CaLog {
+    // 로그 레벨 임계값. Log.ERROR 이상만 출력 (성능 측정 시 ERROR 권장).
+    // VERBOSE=2, DEBUG=3, INFO=4, WARN=5, ERROR=6
+    private static final int LOG_LEVEL = Log.ERROR;
+
     private static String lineOut() {
         int level = 4;
         StackTraceElement[] traces;
@@ -41,6 +45,7 @@ public class CaLog {
     }
 
     public static void d(String logMsg) {
+        if (LOG_LEVEL > Log.DEBUG) return;
         if(logMsg.length() > 4000) {
             Log.d("CA_LOG", logMsg.substring(0, 4000));
             CaLog.d(logMsg.substring(4000));
@@ -49,6 +54,7 @@ public class CaLog {
         }
     }
     public static void e(String logMsg) {
+        if (LOG_LEVEL > Log.ERROR) return;
         if(logMsg.length() > 4000) {
             Log.e("CA_LOG", logMsg.substring(0, 4000));
             CaLog.e(logMsg.substring(4000));
@@ -57,6 +63,7 @@ public class CaLog {
         }
     }
     public static void v(String logMsg) {
+        if (LOG_LEVEL > Log.VERBOSE) return;
         if(logMsg.length() > 4000) {
             Log.v("CA_LOG", logMsg.substring(0, 4000));
             CaLog.v(logMsg.substring(4000));
@@ -65,6 +72,7 @@ public class CaLog {
         }
     }
     public static void i(String logMsg) {
+        if (LOG_LEVEL > Log.INFO) return;
         if(logMsg.length() > 4000) {
             Log.i("CA_LOG", logMsg.substring(0, 4000));
             CaLog.i(logMsg.substring(4000));

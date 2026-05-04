@@ -14,11 +14,14 @@ public class ObserverClient {
 
     private final RestClient restClient;
     private final String serviceName;
+    private final boolean enabled;
 
     public ObserverClient(
+            @Value("${observer.enabled:true}") boolean enabled,
             @Value("${observer.url:http://127.0.0.1:18080}") String observerUrl,
             @Value("${observer.service-name:did-ca-server}") String serviceName
     ) {
+        this.enabled = enabled;
         this.restClient = RestClient.builder()
                 .baseUrl(observerUrl)
                 .build();
@@ -27,6 +30,9 @@ public class ObserverClient {
 
     @Async
     public void send(String type, String method, String uri, String payload, OffsetDateTime timestamp) {
+        if (!enabled) {
+            return;
+        }
         ObservedLogEvent event = new ObservedLogEvent();
         event.setServiceName(serviceName);
         event.setType(type);
