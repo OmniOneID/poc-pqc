@@ -1,0 +1,26 @@
+{
+  "userInfo" : {
+    "pii" : "2a5a0a36923ba00d7f812cb6f4ee79a0123b8116ce00d691d9485bdc090ca040",
+    "firstname" : "aaa",
+    "vcSchemaIndex" : null,
+    "vcSchemaId" : null,
+    "vcSchemaTitle" : null,
+    "userId" : "517cd108",
+    "did" : null,
+    "email" : null,
+    "lastname" : "aaa"
+  },
+  "vcPlans" : [ {
+    "vcPlanId" : "test.profile",
+    "name" : "Test Profile",
+    "description" : "Test Profile",
+    "manager" : "did:omn:issuer"
+  } ],
+  "currentVcPlan" : "test.profile",
+  "issuer" : "did:omn:issuer",
+  "vpPolicies" : [ {
+    "policyId" : "9d7c1cdd-834d-484e-b14a-b9006bdc0625",
+    "policyTitle" : "Test Policy"
+  } ],
+  "currentVpPolicy" : "9d7c1cdd-834d-484e-b14a-b9006bdc0625"
+}

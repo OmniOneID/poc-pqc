@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: Ledger-Service-Server
+  profiles:
+    default: dev
+    group:
+      dev:
+        - auth
+        - database
+        - wallet
+        - jasypt
+        - logging
+        - spring-docs
+      sample:
+        - auth
+        - database
+        - wallet
+        - jasypt
+        - logging
+        - spring-docs
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8098
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true

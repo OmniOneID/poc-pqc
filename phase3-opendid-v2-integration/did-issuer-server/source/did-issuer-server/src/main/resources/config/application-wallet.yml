@@ -1,0 +1,7 @@
+wallet:
+  file-path: /Users/yundabal/git/opendid-poc-env3/jars/Issuer/issuer-pqc.wallet
+  password: omnioneopendid12!@
+
+zkp-wallet:
+  file-path: /Users/yundabal/git/opendid-poc-env3/jars/Issuer/issuer-pqc.zkp.wallet
+  password: omnioneopendid12!@

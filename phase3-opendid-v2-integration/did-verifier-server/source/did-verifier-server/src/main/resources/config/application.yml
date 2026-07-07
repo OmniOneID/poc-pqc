@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: Verifier
+  profiles:
+    active: dev, lss
+    group:
+        dev:
+          - databases
+          - wallet
+          - logging
+          - spring-docs
+          - verifier
+          - blockchain
+        sample:
+          - databases-sample
+          - wallet
+          - logging
+          - spring-docs
+          - verifier
+        lss:
+          - lss
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      fail-on-empty-beans: false
+  liquibase:
+    change-log: classpath:/db/changelog/master.xml
+    enabled: true
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1:5430/verifier
+    username: omn
+    password: omn
+  jpa:
+    open-in-view: true
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    org.omnione: debug
+
+server:
+  port: 8092
+
+tas:
+  url: http://localhost:8090
+
+wallet:
+  file-path: /Users/yundabal/git/opendid-poc-env3/jars/Verifier/verifier-pqc.wallet
+  password: omnioneopendid12!@
+  key-algorithm: MlDsa44 # PQC: MlDsa44 또는 Secp256r1
+
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    groups-order: ASC
+    operations-sorter: method
+    disable-swagger-default-url: true
+    display-request-duration: true
+  api-docs:
+    path: /api-docs
+  show-actuator: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, shutdown, refresh
+  endpoint:
+    shutdown:
+      enabled: true
+    startup:
+      enabled: true
+
+observer:
+  enabled: false # did-observer-server 호출 ON/OFF (성능 측정 시 false 권장)

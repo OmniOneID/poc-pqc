@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.6.xsd">
+
+        <changeSet id="project-init_did" author="gwnam">
+            <createTable tableName="did">
+                <column name="id" type="BIGINT" autoIncrement="true">
+                    <constraints primaryKey="true" nullable="false" />
+                </column>
+                <column name="did" type="VARCHAR(100)">
+                    <constraints nullable="false" unique="true" />
+                </column>
+                <column name="version" type="SMALLINT">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="role" type="VARCHAR(30)">
+                    <constraints nullable="true" unique="false"/>
+                </column>
+                <column name="status" type="VARCHAR(20)">
+                    <constraints nullable="false" unique="false"/>
+                </column>
+                <column name="terminated_time" type="TIMESTAMP">
+                    <constraints nullable="true" unique="false"/>
+                </column>
+                <column name="created_at" type="TIMESTAMP" defaultValue="NOW()">
+                    <constraints nullable="false" unique="false" />
+                </column>
+                <column name="updated_at" type="TIMESTAMP">
+                    <constraints nullable="true" unique="false" />
+                </column>
+            </createTable>
+        </changeSet>
+
+</databaseChangeLog>

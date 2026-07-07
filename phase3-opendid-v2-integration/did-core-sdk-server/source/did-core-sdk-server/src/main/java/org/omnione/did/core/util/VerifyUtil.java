@@ -1,0 +1,175 @@
+/*
+ * Copyright 2024 OmniOne.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.omnione.did.core.util;
+
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+
+import org.omnione.did.core.data.rest.SignatureParams;
+import org.omnione.did.core.data.rest.SignatureVcParams;
+import org.omnione.did.core.exception.CoreErrorCode;
+import org.omnione.did.core.exception.CoreException;
+import org.omnione.did.core.manager.DidManager;
+import org.omnione.did.crypto.enums.DigestType;
+import org.omnione.did.crypto.enums.EccCurveType;
+import org.omnione.did.crypto.exception.CryptoException;
+import org.omnione.did.crypto.util.DigestUtils;
+import org.omnione.did.crypto.util.MultiBaseUtils;
+import org.omnione.did.crypto.util.SignatureUtils;
+import org.omnione.did.data.model.did.DidDocument;
+import org.omnione.did.data.model.did.VerificationMethod;
+import org.omnione.did.data.model.enums.did.ProofType;
+import org.omnione.did.data.model.vc.VcProof;
+import org.omnione.did.data.model.vc.VerifiableCredential;
+
+public class VerifyUtil {
+
+    /**
+     * Checks if the given date data is expired.
+     *
+     * @param validUntil The date string to check.
+     * @return True if the date is expired, false otherwise.
+     * @throws CoreException
+     */
+    public static boolean isExpired(String validUntil) throws CoreException {
+        ZonedDateTime expirationZonedDateTime = VerifiableCredential.stringToUTC0Date(validUntil);
+        ZonedDateTime nowZonedDateTime = ZonedDateTime.now(ZoneOffset.UTC);
+        if (expirationZonedDateTime.isBefore(nowZonedDateTime)) {
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Constructs and returns a SignatureVcParams object using the provided Verifiable Credential and issuer's DID Document.
+     * 
+     * @param tmpVerifiableCredential The Verifiable Credential used to extract signature-related parameters.
+     * @param issuerDidDocument The DID Document of the issuer, used to retrieve the public key for verification.
+     * @param isSingleClaim A boolean flag indicating whether the signature is for a single claim or the entire Verifiable Credential.
+     * @param proofValue The cryptographic proof (signature) associated with the Verifiable Credential or claim.
+     * @return A SignatureVcParams object populated with the necessary data for signature verification.
+     * @throws CoreException
+     */
+    public static SignatureVcParams getSignatureVcParams(VerifiableCredential tmpVerifiableCredential, DidDocument issuerDidDocument
+            , boolean isSingleClaim, String proofValue) throws CoreException {
+
+        VcProof vcProof = tmpVerifiableCredential.getProof();
+        VcProof tmpProof = new VcProof();
+        tmpProof.setCreated(vcProof.getCreated());
+        tmpProof.setProofPurpose(vcProof.getProofPurpose());
+        tmpProof.setType(vcProof.getType());
+        tmpProof.setVerificationMethod(vcProof.getVerificationMethod());
+
+        tmpVerifiableCredential.setProof(tmpProof);
+        
+        SignatureVcParams sigVcParams = new SignatureVcParams();
+        sigVcParams.setIsSingleClaim(isSingleClaim);
+        sigVcParams.setOriginData(tmpVerifiableCredential.toJson());
+        sigVcParams.setSignatureValue(proofValue);
+        DidManager didManager = new DidManager();
+        didManager.parse(issuerDidDocument.toJson());
+
+        VerificationMethod publicKey =  didManager.getVerificationMethodByKeyId(tmpProof.getVerificationMethod().split("\\#")[1]);
+
+        if (publicKey == null) {
+            throw new CoreException(CoreErrorCode.ERR_CODE_VCMANAGER_NOT_EXIST_SIGNING_KEY);
+        }
+        sigVcParams.setPublicKey(publicKey.getPublicKeyMultibase());
+        sigVcParams.setAlgorithm(tmpProof.getType());
+        
+        return sigVcParams;
+    }
+    
+    /**
+     * Hashes the provided data using SHA-256.
+     *
+     * @param signOrignData The data to hash.
+     * @return The hashed data.
+     * @throws CoreException 
+     */
+    private static byte[] hashData(String signOrignData) throws CoreException{
+        try {
+            return DigestUtils.getDigest(signOrignData.getBytes(StandardCharsets.UTF_8), DigestType.SHA256);
+        } catch (CryptoException e) {
+            throw new CoreException(CoreErrorCode.ERR_CODE_VPMANAGER_GEN_HASH_FAIL ,e);
+        }
+    }
+
+    /**
+     * Gets the EccCurveType based on the Sign algorithm.
+     *
+     * @param sigAlgorithm The signature algorithm.
+     * @return The corresponding elliptic curve type.
+     */
+    private static EccCurveType getCurveTypeByAlgorithm(String sigAlgorithm) {
+        ProofType proofType = ProofType.fromString(sigAlgorithm);
+
+        // TODO To modify RSA signature verification, also modify the syntax below.
+        EccCurveType vcEccCurveType = proofType == ProofType.SECP256K1_SIGNATURE_2018 ? EccCurveType.Secp256k1 : EccCurveType.Secp256r1;
+        return vcEccCurveType;
+    }
+
+    // forten - ML-DSA-44 PQC 알고리즘인지 판별
+    private static boolean isMlDsa44(String sigAlgorithm) {
+        ProofType proofType = ProofType.fromString(sigAlgorithm);
+        return proofType == ProofType.ML_DSA_44_SIGNATURE_2024;
+    }
+
+    /**
+     * Verifies the signature with the provided public key, hashed data, and signature.
+     *
+     * @param compressPublicKeyBytes The compressed public key bytes.
+     * @param hashedSignOrignData The hashed data.
+     * @param signatureByte The signature bytes.
+     * @param eccCurveType The ECC curve type.
+     * @throws CoreException
+     */
+    public static void verifySignature(SignatureParams sigParams) throws CoreException {
+        byte[] signatureByte;
+        byte[] publicKeyBytes;
+        try {
+            signatureByte = MultiBaseUtils.decode(sigParams.getSignatureValue());
+            publicKeyBytes = MultiBaseUtils.decode(sigParams.getPublicKey());
+        } catch (CryptoException e) {
+            throw new CoreException(CoreErrorCode.ERR_CODE_VPMANAGER_MULTIBASE_DECODING_FAIL ,e);
+        }
+
+        // forten - ML-DSA-44 PQC 서명 검증 (X.509 공개키 사용; SHA-256 선해싱 없이 원문 직접 검증)
+        // signAndAddProof 서명 경로: generateCompactSignatureFromHash(keyId, rawOriginData) → ML-DSA-44(rawOriginData)
+        // 따라서 검증도 rawOriginData를 그대로 전달해야 함 (SHA-256 적용 시 불일치)
+        if (isMlDsa44(sigParams.getAlgorithm())) {
+            byte[] rawData = sigParams.getOriginData().getBytes(StandardCharsets.UTF_8); // forten - raw bytes, no SHA-256
+            try {
+                SignatureUtils.verifyMlDsa44Signature(publicKeyBytes, rawData, signatureByte);
+            } catch (CryptoException e) {
+                throw new CoreException(CoreErrorCode.ERR_CODE_VPMANAGER_VERIFY_SIGNATURE_FAIL, e.getMessage());
+            }
+            return;
+        }
+
+        // 기존 ECC 서명 검증
+        byte[] hashedSignOrignData = hashData(sigParams.getOriginData());
+        EccCurveType eccCurveType = getCurveTypeByAlgorithm(sigParams.getAlgorithm());
+
+        try {
+            SignatureUtils.verifyCompactSignWithCompressedKey(publicKeyBytes, hashedSignOrignData, signatureByte, eccCurveType);
+        } catch (CryptoException e) {
+            throw new CoreException(CoreErrorCode.ERR_CODE_VPMANAGER_VERIFY_SIGNATURE_FAIL, e.getMessage());
+        }
+    }
+}

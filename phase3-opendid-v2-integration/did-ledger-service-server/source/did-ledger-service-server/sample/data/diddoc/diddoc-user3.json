@@ -1,0 +1,27 @@
+{
+  "@context": ["https://www.w3.org/ns/did/v1"],
+  "id": "did:raon:user3",
+  "controller": "did:raon:user3",
+  "created": "2024-01-01T09:00:00Z",
+  "updated": "2024-01-01T09:00:00Z",
+  "versionId": "1",
+  "deactivated": false,
+  "verificationMethod": [
+    {
+      "id": "pin",
+      "type": "Secp256r1VerificationKey2018",
+      "controller": "did:raon:user3",
+      "publicKeyMultibase": "z3EFKFf4xRAjfryP52YK71HN8o5VhbJKuvG5qNyuwFo3XT68fw5jrADosNf52pGs36RpWjpfEgLSTjsRjtpzVjYsQJGcPiEnnobTGvpboRMuhoSBmkBX53UqvCfdGbU7gfpzvwqBF7BRTj8z8wziKSZNCHPAcG6LyzYCHcp8vMQa1jqAesiSdAmvEsk1cUsosSrn3ZW6QaiyHjnmbPWWkbZdfBkPzqHzwFHRbPr6ygnh5HE",
+      "authType": "1"
+    },
+    {
+      "id": "bio",
+      "type": "Secp256r1VerificationKey2018",
+      "controller": "did:raon:user3",
+      "publicKeyMultibase": "z3EFKFf4xRAjfryP52YK71HN8o5VhbJKuvG5qNyuwFo3XT68fw5jrADosNf52pGs36RpWjpfEgLSTjsRjtpzVjSHYo8U7YRB4phk6RsxhrzTW7ndKshKL8B9eAMXcbqzCDs2ViAT261bLYcZVCvVztSCVQk2ShUuCE7R3gM216VV3xgRnyVjAYtBSatezE9ZTjhiCuMj7TXMA9oaJAkpwuJQ22BxvcZ5mRhTifUuyVH3t6G",
+      "authType": "1"
+    }
+  ],
+  "assertionMethod": ["pin", "bio"],
+  "authentication": ["pin", "bio"]
+}

@@ -1,0 +1,51 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Gradle / Java
+.gradle/
+build/
+!**/src/**/build/
+out/
+*.class
+*.jar.original
+hs_err_pid*.log
+
+# Android
+local.properties
+*.apk
+*.aab
+*.ap_
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+.kotlin/
+
+# Spring Boot
+*.log
+logs/
+
+# Gradle wrapper cache (keep wrapper jar itself)
+!gradle/wrapper/gradle-wrapper.jar
+
+# Misc
+*.bak
+*.swp
+.qa/
+.mesh-orchestra/
+.claude/
+CLAUDE.md
+
+# Phase 3 server jar artifacts
+phase3-opendid-v2-integration/server-scripts/jars/*/*.jar
+phase3-opendid-v2-integration/**/.qa/
+phase3-opendid-v2-integration/**/node_modules/

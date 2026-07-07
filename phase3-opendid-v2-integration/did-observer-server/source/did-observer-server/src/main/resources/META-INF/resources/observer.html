@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observer Server</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Menlo, Consolas, Monaco, monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 24px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+        .nav {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .nav-link {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 13px;
+            font-family: inherit;
+            padding: 6px 14px;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+            border: 1px solid transparent;
+        }
+        .nav-link:hover { background: #21262d; color: #c9d1d9; }
+        .nav-link.active {
+            color: #f0f6fc;
+            border-color: #30363d;
+            background: #21262d;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #8b949e;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f85149;
+        }
+        .dot.connected {
+            background: #3fb950;
+        }
+        button {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #30363d;
+        }
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 24px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        .filter.active {
+            border-color: #58a6ff;
+            color: #58a6ff;
+            background: rgba(88, 166, 255, 0.08);
+        }
+        .filter.res.active {
+            border-color: #3fb950;
+            color: #3fb950;
+            background: rgba(63, 185, 80, 0.08);
+        }
+        .filter.err.active {
+            border-color: #f85149;
+            color: #f85149;
+            background: rgba(248, 81, 73, 0.12);
+        }
+        .counter {
+            margin-left: auto;
+            color: #8b949e;
+            font-size: 11px;
+        }
+        .main-layout {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+        .side-panel {
+            width: 380px;
+            min-width: 320px;
+            border-right: 1px solid #30363d;
+            background: #0f141b;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .side-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #30363d;
+            color: #8b949e;
+            font-size: 12px;
+        }
+        #routeContainer {
+            overflow-y: auto;
+            padding: 12px;
+            flex: 1;
+        }
+        .route-empty {
+            color: #6e7681;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .route-entry {
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            background: #161b22;
+            cursor: pointer;
+        }
+        .route-entry:hover {
+            background: #1b2330;
+        }
+        .route-entry.active {
+            border-color: #58a6ff;
+            background: rgba(88, 166, 255, 0.08);
+        }
+        .route-service {
+            color: #d2a8ff;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .route-line {
+            color: #f0f6fc;
+            font-size: 12px;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+        .route-type {
+            color: #8b949e;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        .content-panel {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        #logContainer {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+        }
+        .empty {
+            color: #6e7681;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 28px;
+        }
+        .entry {
+            position: relative;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+            background: #161b22;
+            line-height: 1.6;
+            word-break: break-all;
+            scroll-margin-top: 16px;
+        }
+        .json-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 2px 8px;
+            font-size: 11px;
+            color: #8b949e;
+            background: #0d1117;
+            border-color: #30363d;
+        }
+        .json-btn:hover {
+            color: #58a6ff;
+            border-color: #58a6ff;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            width: 95vw;
+            max-width: 1400px;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .modal-title {
+            color: #8b949e;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .modal-body {
+            overflow: auto;
+            padding: 16px;
+            margin: 0;
+            color: #c9d1d9;
+            font-size: 12px;
+            line-height: 1.6;
+            flex: 1;
+            min-height: 0;
+            white-space: pre;
+        }
+        .entry.req {
+            border-left-color: #58a6ff;
+            background: rgba(88, 166, 255, 0.07);
+        }
+        .entry.res {
+            border-left-color: #3fb950;
+            background: rgba(63, 185, 80, 0.07);
+        }
+        .entry.err {
+            border-left-color: #f85149;
+            background: rgba(248, 81, 73, 0.12);
+        }
+        .meta {
+            color: #8b949e;
+            font-size: 12px;
+        }
+        .headline {
+            color: #f0f6fc;
+            font-size: 13px;
+            margin-top: 2px;
+        }
+        .payload {
+            color: #c9d1d9;
+            white-space: pre-wrap;
+            display: block;
+            margin-top: 6px;
+        }
+        .service {
+            color: #d2a8ff;
+        }
+        .entry.focus {
+            outline: 1px solid #58a6ff;
+            box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.2);
+        }
+        @media (max-width: 960px) {
+            .main-layout {
+                flex-direction: column;
+            }
+            .side-panel {
+                width: 100%;
+                min-width: 0;
+                max-height: 260px;
+                border-right: 0;
+                border-bottom: 1px solid #30363d;
+            }
+        }
+        .service-toolbar {
+            flex-wrap: wrap;
+            padding: 8px 24px;
+            gap: 6px;
+        }
+        .service-toolbar-label {
+            color: #8b949e;
+            font-size: 11px;
+            margin-right: 4px;
+            white-space: nowrap;
+            align-self: center;
+        }
+        .filter.service-filter.active {
+            border-color: #d2a8ff;
+            color: #d2a8ff;
+            background: rgba(210, 168, 255, 0.08);
+        }
+    </style>
+</head>
+<body>
+<header>
+    <nav class="nav">
+        <a href="/observer" class="nav-link active">로그</a>
+        <a href="/report" class="nav-link">리포트</a>
+    </nav>
+    <h1>Observer Server</h1>
+    <div class="controls">
+        <div class="status">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">Connecting...</span>
+        </div>
+        <button id="autoScrollBtn" type="button">Auto-scroll: ON</button>
+        <button id="clearBtn" type="button">Clear</button>
+    </div>
+</header>
+<div class="toolbar">
+    <button class="filter req active" data-type="req" type="button">REQ</button>
+    <button class="filter res active" data-type="res" type="button">RES</button>
+    <button class="filter err active" data-type="err" type="button">ERR</button>
+    <span id="logCount" class="counter">0 entries</span>
+</div>
+<div id="serviceToolbar" class="toolbar service-toolbar" style="display:none">
+    <span class="service-toolbar-label">서버</span>
+    <span id="serviceCount" class="counter"></span>
+</div>
+<main class="main-layout">
+    <aside class="side-panel">
+        <div class="side-header">Observed Routes</div>
+        <div id="routeContainer">
+            <div id="routeEmptyState" class="route-empty">Waiting for route entries...</div>
+        </div>
+    </aside>
+    <section class="content-panel">
+        <div id="logContainer">
+            <div id="emptyState" class="empty">수신 대기 중...</div>
+            <div id="selectState" class="empty" style="display:none">← 좌측에서 API를 선택하면 상세 내용이 표시됩니다</div>
+        </div>
+    </section>
+</main>
+<div id="jsonModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <span id="jsonModalTitle" class="modal-title"></span>
+            <div class="modal-actions">
+                <button id="jsonCopyBtn" type="button">복사</button>
+                <button id="jsonCloseBtn" type="button">✕</button>
+            </div>
+        </div>
+        <pre id="jsonContent" class="modal-body"></pre>
+    </div>
+</div>
+<script>
+    const logContainer = document.getElementById('logContainer');
+    const routeContainer = document.getElementById('routeContainer');
+    const logCount = document.getElementById('logCount');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const autoScrollBtn = document.getElementById('autoScrollBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const filters = { req: true, res: true, err: true };
+    const serviceFilters = {};
+    const knownServices = new Set();
+    let autoScroll = true;
+    let totalEntries = 0;
+    let selectedEntryId = null;
+
+    function updateStatus(connected) {
+        statusDot.classList.toggle('connected', connected);
+        statusText.textContent = connected ? 'Connected' : 'Disconnected';
+    }
+
+    function updateCount() {
+        logCount.textContent = `${totalEntries} entries`;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function isRouteEntryVisible(routeEntry) {
+        return !!filters[routeEntry.dataset.type] && !!serviceFilters[routeEntry.dataset.service];
+    }
+
+    function selectEntry(entryId) {
+        selectedEntryId = entryId;
+        document.querySelectorAll('.route-entry').forEach((routeEntry) => {
+            routeEntry.classList.toggle('active', routeEntry.dataset.entryId === entryId);
+        });
+        document.querySelectorAll('.entry[data-entry-id]').forEach((entry) => {
+            entry.style.display = entry.dataset.entryId === entryId ? '' : 'none';
+        });
+        const selectState = document.getElementById('selectState');
+        if (selectState) selectState.style.display = 'none';
+    }
+
+    function openJsonModal(rawPayload, title) {
+        let formatted;
+        try {
+            formatted = JSON.stringify(JSON.parse(rawPayload), null, 2);
+        } catch (e) {
+            formatted = rawPayload;
+        }
+        document.getElementById('jsonModalTitle').textContent = title || '';
+        document.getElementById('jsonContent').textContent = formatted;
+        document.getElementById('jsonModal').style.display = 'flex';
+    }
+
+    function closeJsonModal() {
+        document.getElementById('jsonModal').style.display = 'none';
+    }
+
+    document.getElementById('jsonCloseBtn').addEventListener('click', closeJsonModal);
+    document.getElementById('jsonModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeJsonModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeJsonModal();
+    });
+    document.getElementById('jsonCopyBtn').addEventListener('click', () => {
+        const text = document.getElementById('jsonContent').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('jsonCopyBtn');
+            btn.textContent = '복사됨!';
+            setTimeout(() => { btn.textContent = '복사'; }, 1500);
+        });
+    });
+
+    function addServiceFilter(serviceName) {
+        if (knownServices.has(serviceName)) return;
+        knownServices.add(serviceName);
+        serviceFilters[serviceName] = true;
+
+        const toolbar = document.getElementById('serviceToolbar');
+        toolbar.style.display = '';
+
+        const counter = document.getElementById('serviceCount');
+        const btn = document.createElement('button');
+        btn.className = 'filter service-filter active';
+        btn.dataset.service = serviceName;
+        btn.textContent = serviceName;
+        btn.addEventListener('click', () => {
+            serviceFilters[serviceName] = !serviceFilters[serviceName];
+            btn.classList.toggle('active', serviceFilters[serviceName]);
+            document.querySelectorAll(`.route-entry[data-service="${CSS.escape(serviceName)}"]`).forEach((routeEntry) => {
+                routeEntry.style.display = isRouteEntryVisible(routeEntry) ? '' : 'none';
+            });
+        });
+        toolbar.insertBefore(btn, counter);
+    }
+
+    function renderRouteEntry(event, entryId) {
+        const routeEmptyState = document.getElementById('routeEmptyState');
+        if (routeEmptyState) routeEmptyState.remove();
+
+        const routeEntry = document.createElement('div');
+        routeEntry.className = 'route-entry';
+        routeEntry.dataset.entryId = entryId;
+        routeEntry.dataset.type = event.type;
+        routeEntry.dataset.service = event.serviceName || '';
+        routeEntry.style.display = isRouteEntryVisible(routeEntry) ? '' : 'none';
+        routeEntry.innerHTML = `
+            <div class="route-service">${escapeHtml(event.serviceName || '')}</div>
+            <div class="route-line">${escapeHtml([event.method, event.uri].filter(Boolean).join(' ') || event.type.toUpperCase())}</div>
+            <div class="route-type">${escapeHtml((event.type || '').toUpperCase())}</div>
+        `;
+        routeEntry.addEventListener('click', () => selectEntry(entryId));
+        routeContainer.appendChild(routeEntry);
+
+        if (autoScroll) {
+            routeContainer.scrollTop = routeContainer.scrollHeight;
+        }
+    }
+
+    function renderEntry(event) {
+        totalEntries += 1;
+        updateCount();
+        const entryId = `entry-${totalEntries}`;
+
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) emptyState.remove();
+
+        const selectState = document.getElementById('selectState');
+        if (selectState) selectState.style.display = '';
+
+        const entry = document.createElement('div');
+        entry.className = `entry ${event.type}`;
+        entry.dataset.entryId = entryId;
+        entry.dataset.type = event.type;
+        entry.dataset.service = event.serviceName || '';
+        addServiceFilter(event.serviceName || '');
+        entry.style.display = 'none';
+
+        const headline = [event.method, event.uri].filter(Boolean).join(' ');
+        const timestamp = event.timestamp || '';
+        entry.innerHTML = `
+            <div class="meta"><span class="service">${escapeHtml(event.serviceName)}</span> | ${escapeHtml(timestamp)}</div>
+            <div class="headline">${escapeHtml(headline || event.type.toUpperCase())}</div>
+            <span class="payload">${escapeHtml(event.payload || '')}</span>
+        `;
+
+        const payload = event.payload || '';
+        let isJson = false;
+        try { JSON.parse(payload); isJson = true; } catch (e) {}
+        if (isJson) {
+            const jsonBtn = document.createElement('button');
+            jsonBtn.className = 'json-btn';
+            jsonBtn.type = 'button';
+            jsonBtn.textContent = '{ }';
+            jsonBtn.title = 'JSON 정렬 보기';
+            jsonBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openJsonModal(payload, `${escapeHtml(event.serviceName)} | ${escapeHtml(headline || event.type.toUpperCase())}`);
+            });
+            entry.appendChild(jsonBtn);
+        }
+
+        logContainer.appendChild(entry);
+        renderRouteEntry(event, entryId);
+    }
+
+    async function clearLogs() {
+        await fetch('/api/logs/clear', { method: 'POST' });
+        totalEntries = 0;
+        selectedEntryId = null;
+        updateCount();
+        logContainer.innerHTML = '<div id="emptyState" class="empty">수신 대기 중...</div><div id="selectState" class="empty" style="display:none">← 좌측에서 API를 선택하면 상세 내용이 표시됩니다</div>';
+        routeContainer.innerHTML = '<div id="routeEmptyState" class="route-empty">Waiting for route entries...</div>';
+        knownServices.clear();
+        Object.keys(serviceFilters).forEach(k => delete serviceFilters[k]);
+        const serviceToolbar = document.getElementById('serviceToolbar');
+        serviceToolbar.style.display = 'none';
+        serviceToolbar.querySelectorAll('.service-filter').forEach(btn => btn.remove());
+    }
+
+    document.querySelectorAll('.filter[data-type]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const type = button.dataset.type;
+            filters[type] = !filters[type];
+            button.classList.toggle('active', filters[type]);
+            document.querySelectorAll(`.route-entry[data-type="${type}"]`).forEach((routeEntry) => {
+                routeEntry.style.display = isRouteEntryVisible(routeEntry) ? '' : 'none';
+            });
+        });
+    });
+
+    autoScrollBtn.addEventListener('click', () => {
+        autoScroll = !autoScroll;
+        autoScrollBtn.textContent = `Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
+    });
+
+    clearBtn.addEventListener('click', clearLogs);
+
+    function connect() {
+        const source = new EventSource('/api/log-stream');
+        source.addEventListener('open', () => updateStatus(true));
+        ['req', 'res', 'err'].forEach((type) => {
+            source.addEventListener(type, (messageEvent) => renderEntry(JSON.parse(messageEvent.data)));
+        });
+        source.addEventListener('error', () => {
+            updateStatus(false);
+            source.close();
+            window.setTimeout(connect, 1500);
+        });
+    }
+
+    updateCount();
+    connect();
+</script>
+</body>
+</html>

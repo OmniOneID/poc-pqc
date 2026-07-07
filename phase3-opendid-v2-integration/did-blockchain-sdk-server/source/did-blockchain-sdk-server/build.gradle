@@ -1,0 +1,55 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.kotlin.jvm' version '1.8.0'
+    id 'org.web3j' version '4.14.0'
+}
+
+group = 'org.omnione.did'
+version = '2.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+    google()
+    maven { url 'https://maven.google.com/' }
+    maven { url 'https://mvnrepository.com/artifact/' }
+    maven { url "https://hyperledger.jfrog.io/artifactory/besu-maven/" }
+    maven { url "https://artifacts.consensys.net/public/maven/maven/" }
+    maven { url "https://splunk.jfrog.io/splunk/ext-releases-local" }
+    maven { url "https://dl.cloudsmith.io/public/consensys/quorum-mainnet-launcher/maven/" }
+}
+
+ext {
+    set('web3jCoreVersion', '4.14.0')
+    set('fabricGatewayVersion', '1.7.1')
+    set('besuVersion', '24.5.4')
+}
+
+dependencies {
+    implementation 'org.omnione.did:did-datamodel-sdk-server:2.0.0'
+    implementation 'org.omnione.did:did-zkp-sdk-server:2.0.0'
+    implementation 'org.omnione.did:did-crypto-sdk-server:2.0.0'
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.hyperledger.fabric:fabric-gateway:${fabricGatewayVersion}")
+    implementation platform('com.google.protobuf:protobuf-bom:4.29.2')
+    implementation("org.web3j:core:${web3jCoreVersion}")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.2")
+    implementation("org.apache.commons:commons-pool2:2.12.0")
+    implementation 'org.hibernate.validator:hibernate-validator:8.0.0.Final'
+    implementation 'jakarta.validation:jakarta.validation-api:3.1.1'
+    testImplementation("org.web3j:web3j-unit:4.12.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.10.0")
+    annotationProcessor("com.fasterxml.jackson.core:jackson-databind:2.15.2")
+    annotationProcessor("org.projectlombok:lombok:1.18.30")
+    compileOnly("org.projectlombok:lombok:1.18.30")
+}
+
+test {
+    useJUnitPlatform()
+}

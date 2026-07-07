@@ -1,0 +1,84 @@
+# Python implementation of MLDSA and MLDSA-ETH Python
+
+
+Implementation based on [this repository](https://github.com/GiacomoPope/dilithium-py/). We use the NTT implemented by ZKNOX [here](https://github.com/zkNoxHQ/ntt).
+
+:warning: This is a work in progress. Do not use in production.
+
+## Install
+```bash
+make install
+```
+
+## Test
+```bash
+make test
+```
+
+## Example
+
+We provide an example of {keygen/signature/verification/verification on chain} for both MLDSA (FIPS-204) and our EVM-friendly version. The contracts are available on Sepolia testnet.
+
+### Example with MLDSA (NIST-compliant)
+```bash
+# key generation
+# pk and sk are saved into files
+./sign_cli.py keygen \
+    --version MLDSA
+# signing a message (in hexadecimal) using the previously saved private_key.pem
+# the signature is saved into a file
+./sign_cli.py sign \
+    --data "deadbeef" \
+    --privkey private_key.pem
+# verify locally the signature
+./sign_cli.py verify \
+    --data "deadbeef" \
+    --pubkey public_key.pem \
+    --signature sig
+# verify on-chain the signature
+./sign_cli.py verifyonchain \
+    --data "deadbeef" \
+    --pubkey public_key.pem \
+    --signature sig \
+    --contractaddress 0x96bb2c3f4953f01514000c9e028d7834f759af1a \
+    --rpc "wss://ethereum-sepolia-rpc.publicnode.com"
+```
+This should output:
+```
+STDOUT: 0x0000000000000000000000000000000000000000000000000000000000000001
+
+STDERR: 
+RETURN CODE: 0
+```
+
+### Example with MLDSAETH (EVM-friendly)
+```bash
+# key generation
+# pk and sk are saved into files
+./sign_cli.py keygen \
+    --version MLDSAETH
+# signing a message (in hexadecimal) using the previously saved private_key.pem
+# the signature is saved into a file
+./sign_cli.py sign \
+    --data "cafe" \
+    --privkey private_key.pem
+# verify locally the signature
+./sign_cli.py verify \
+    --data "cafe" \
+    --pubkey public_key.pem \
+    --signature sig
+# verify on-chain the signature
+./sign_cli.py verifyonchain \
+    --data "cafe" \
+    --pubkey public_key.pem \
+    --signature sig \
+    --contractaddress 0xfc52a71fef2279d25342606ab5257b4ee26b015e \
+    --rpc "wss://ethereum-sepolia-rpc.publicnode.com"
+```
+This should output:
+```
+STDOUT: 0x0000000000000000000000000000000000000000000000000000000000000001
+
+STDERR: 
+RETURN CODE: 0
+```

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add User Info</title>
+    <style>
+        button {
+            font-size: 24px;
+            padding: 16px 32px;
+            width: 200px;
+            height: 80px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Add User Info</h1>
+    <form id="addUserInfoForm">
+        <button type="submit">OK</button>
+    </form>
+
+    <script>
+        document.getElementById('addUserInfoForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const userInfo = {
+                userId: "test1234",
+                username: "Raon Kim"
+            };
+            if (window.android && window.android.onCompletedUserInfoUpload) {
+                // Android
+                window.android.onCompletedUserInfoUpload(JSON.stringify(userInfo));
+            } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.onCompletedUserInfoUpload) {
+                // iOS
+                window.webkit.messageHandlers.onCompletedUserInfoUpload.postMessage(JSON.stringify(userInfo));
+            } else {
+                console.warn('No native interface found.');
+            }
+            // window.android.onCompletedUserInfoUpload(JSON.stringify(userInfo));
+        });
+    </script>
+</body>
+</html>

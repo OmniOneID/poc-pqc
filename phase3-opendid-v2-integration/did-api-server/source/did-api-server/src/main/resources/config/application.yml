@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: API Gateway
+  profiles:
+    default: dev, lss
+    group:
+      dev:
+        - logging
+        - spring-docs
+        - blockchain
+      lss:
+        - lss
+
+server:
+  port: 8093
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true
+
+observer:
+  enabled: false # did-observer-server 호출 ON/OFF (성능 측정 시 false 권장)

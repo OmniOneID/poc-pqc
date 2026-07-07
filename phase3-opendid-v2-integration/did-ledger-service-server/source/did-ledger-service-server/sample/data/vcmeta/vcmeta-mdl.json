@@ -1,0 +1,18 @@
+{
+  "id": "99999999-9999-9999-9999-999999999999",
+  "issuer": {
+    "did": "did:raon:issuer",
+    "name": "issuer"
+  },
+  "subject": "Subject did",
+  "credentialSchema": {
+    "id": "http://192.168.3.130:8090/tas/api/v1/download/schema?name=mdl",
+    "type": "OsdSchemaCredential"
+  },
+  "status": "VC 상태",
+  "issuanceDate": "2024-01-01T00:00:00Z",
+  "validFrom": "2024-01-01T00:00:00Z",
+  "validUntil": "2099-01-01T00:00:00Z",
+  "formatVersion": "1.0",
+  "language": "ko"
+}

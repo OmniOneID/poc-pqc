@@ -1,0 +1,25 @@
+spring:
+  profiles:
+    active: dev, lss
+  jpa:
+    show-sql: false # 성능 측정 시 Hibernate SQL 출력 끔
+
+wallet:
+  file-path: /Users/yundabal/git/poc-pqc/phase3-opendid-v2-integration/server-scripts/jars/CA/cas.wallet
+  password: omnioneopendid12!@
+
+springdoc:
+  server:
+    url: http://10.48.17.123:5151
+
+observer:
+  enabled: false # did-observer-server 호출 ON/OFF (성능 측정 시 false 권장)
+  url: http://127.0.0.1:18080
+  service-name: did-ca-server
+
+logging:
+  level:
+    root: ERROR # 성능 측정 시 로그 최소화
+    # application-logging.yml(내부)에서 debug로 설정된 logging group을 명시적으로 덮어씀
+    cas: ERROR
+    liquibase: 'OFF' # DB 마이그레이션 changeset 실행 로그 끔

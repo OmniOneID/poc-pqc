@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: cas
+  profiles:
+    active: dev, lss
+    group:
+        dev:
+          - logging
+          - spring-docs
+          - database
+          - wallet
+          - blockchain
+        sample:
+          - logging
+          - spring-docs
+          - database-sample
+          - wallet
+        lss:
+          - lss
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      fail-on-empty-beans: false
+
+server:
+  port: 8094
+
+wallet:
+  key-algorithm: MlDsa44 # PQC: MlDsa44 또는 Secp256r1
+
+tas:
+  url: http://localhost:8090
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - "health"
+          - "shutdown"
+  endpoint:
+    health:
+      show-details: "never"
+    shutdown:
+      enabled: true
+
+observer:
+  enabled: false # did-observer-server 호출 ON/OFF (성능 측정 시 false 권장)

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo - VP Verification</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Menlo', 'Consolas', monospace;
+            background: #0d1117; color: #c9d1d9;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; padding: 24px;
+        }
+        .card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+            padding: 32px; width: 420px; text-align: center;
+        }
+        .card h1 {
+            font-size: 18px; font-weight: 700; color: #f0f6fc; margin-bottom: 24px;
+        }
+        .card h1 span { color: #58a6ff; }
+        .btn {
+            width: 100%; padding: 12px; border: 1px solid #30363d; border-radius: 8px;
+            background: #21262d; color: #c9d1d9; font-size: 14px; font-family: inherit;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .btn:hover { background: #30363d; }
+        .btn:disabled { opacity: 0.5; cursor: default; }
+        .btn.primary { border-color: #58a6ff; color: #58a6ff; }
+        .btn.primary:hover { background: rgba(88,166,255,0.12); }
+        .btn.green { border-color: #3fb950; color: #3fb950; }
+        .btn.green:hover { background: rgba(63,185,80,0.12); }
+
+        .qr-area {
+            margin: 20px 0; min-height: 200px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .qr-area img {
+            max-width: 200px; border: 1px solid #30363d; border-radius: 8px;
+        }
+        .qr-placeholder {
+            color: #484f58; font-size: 13px;
+        }
+
+        .divider { border-top: 1px solid #30363d; margin: 20px 0; }
+
+        .result {
+            margin-top: 16px; padding: 12px; border-radius: 8px;
+            font-size: 12px; text-align: left; line-height: 1.6;
+            max-height: 300px; overflow-y: auto; display: none;
+        }
+        .result.success { background: rgba(63,185,80,0.08); border: 1px solid #3fb950; color: #3fb950; }
+        .result.error { background: rgba(248,81,73,0.08); border: 1px solid #f85149; color: #f85149; }
+        .result pre { white-space: pre-wrap; word-break: break-all; }
+
+        .status { margin-top: 12px; font-size: 12px; color: #8b949e; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1><span>PQC</span> Demo</h1>
+
+        <!-- QR Generation -->
+        <button class="btn primary" id="qrBtn" onclick="generateQr()">QR Generation</button>
+
+        <div class="qr-area" id="qrArea">
+            <span class="qr-placeholder">Click button to generate QR</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- VP Submission -->
+        <button class="btn green" id="vpBtn" onclick="submitVp()" disabled>VP Submission</button>
+
+        <div class="result" id="resultBox"></div>
+        <div class="status" id="statusText"></div>
+    </div>
+
+    <script>
+        let vpOfferId = '';
+
+        async function generateQr() {
+            const btn = document.getElementById('qrBtn');
+            btn.disabled = true; btn.textContent = 'Generating...';
+            document.getElementById('resultBox').style.display = 'none';
+
+            try {
+                const res = await fetch('/demo/api/v1/qr-data/generate-vp-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ipAddress: '', apiKey: '', policyId: '' })
+                });
+                const data = await res.json();
+                vpOfferId = data.offerId || '';
+
+                const qrArea = document.getElementById('qrArea');
+                if (data.qrImage) {
+                    qrArea.innerHTML = `<img src="data:image/png;base64,${data.qrImage}" alt="QR">`;
+                } else {
+                    qrArea.innerHTML = '<span class="qr-placeholder">QR generation failed</span>';
+                }
+
+                document.getElementById('vpBtn').disabled = false;
+                document.getElementById('statusText').textContent = 'QR ready. Scan with mobile or click VP Submission.';
+            } catch (e) {
+                document.getElementById('qrArea').innerHTML = '<span class="qr-placeholder">Error: ' + e.message + '</span>';
+            } finally {
+                btn.disabled = false; btn.textContent = 'QR Generation';
+            }
+        }
+
+        async function submitVp() {
+            const btn = document.getElementById('vpBtn');
+            btn.disabled = true; btn.textContent = 'Submitting...';
+
+            try {
+                const res = await fetch('/demo/api/v1/vp-result', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vpOfferId: vpOfferId, ipAddress: '', apiKey: '' })
+                });
+                const text = await res.text();
+
+                const resultBox = document.getElementById('resultBox');
+                try {
+                    const json = JSON.parse(text);
+                    resultBox.className = 'result success';
+                    resultBox.innerHTML = '<pre>' + JSON.stringify(json, null, 2) + '</pre>';
+                } catch {
+                    resultBox.className = 'result success';
+                    resultBox.innerHTML = '<pre>' + text + '</pre>';
+                }
+                resultBox.style.display = 'block';
+                document.getElementById('statusText').textContent = 'VP verification complete.';
+            } catch (e) {
+                const resultBox = document.getElementById('resultBox');
+                resultBox.className = 'result error';
+                resultBox.innerHTML = '<pre>Error: ' + e.message + '</pre>';
+                resultBox.style.display = 'block';
+            } finally {
+                btn.disabled = false; btn.textContent = 'VP Submission';
+            }
+        }
+    </script>
+</body>
+</html>
